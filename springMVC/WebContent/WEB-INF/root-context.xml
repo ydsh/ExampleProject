@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:context="http://www.springframework.org/schema/context"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context
+        http://www.springframework.org/schema/context/spring-context.xsd">
+    <!-- 加载properties文件 -->
+    <bean class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+        <property name="locations" value="classpath:jdbc.properties"></property>
+    </bean>
+    
+    <!-- dtataSource -->
+    <bean id="dataSource" class="org.apache.commons.dbcp2.BasicDataSource">
+       <property name="driverClassName" value="${jdbc.driverClassName}"></property>
+       <property name="url" value="${jdbc.url}"></property>
+       <property name="username" value="${jdbc.userName}"></property>
+       <property name="password" value="${jdbc.password}"></property>
+    </bean>
+    
+    <!-- sessionFactory -->
+    <bean id="sessionFactory" class="org.springframework.orm.hibernate5.LocalSessionFactoryBean">
+       <property name="dataSource" ref="dataSource"></property>
+       
+       <!-- mapping -->
+       <property name="mappingResources">
+          <list>
+             <value>org/springMVC/mappig/Student.hbm.xml</value>
+          </list>
+       </property>
+       
+       <!-- hibernateProperties -->
+       <property name="hibernateProperties">
+             <value>
+             hibernate.dialect=org.hibernate.dialect.SQLServerDialect
+             hibernate.connection.autocommit=true
+             hibernate.hbm2ddl.auto=update
+             hibernate.cache.use_second_level_cache=true
+             hibernate.show_sql=true
+             hibernate.format_sql=false
+             hibernate.connection.release_mode=auto
+             hibernate.jdbc.fetch_size=50
+             hibernate.jdbc.batch_size=20
+             hibernate.current_session_context_class=thread
+             hibernate.cache.provider_class=NoCachingRegionFactory
+             </value>
+       </property>
+       
+    </bean>
+    
+    <context:component-scan base-package="org.springMVC.controller"/>
+    <context:component-scan base-package="org.springMVC.impl"/>
+    
+    
+    <bean id="studentDao" class="org.springMVC.impl.StudentImpl">
+        <property name="sessionFactory" ref="sessionFactory"></property>
+    </bean>
+    
+    <bean id="springController" class="org.springMVC.controller.SpringController">
+        <property name="studentDao" ref="studentDao"></property>
+    </bean>
+    
+  
+</beans>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC 
+    "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+    "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+<hibernate-mapping>
+ <class name="org.springMVC.model.Student" table="Students">
+    <id name="num" type="java.lang.Integer">
+        <column name="stu_No" length="3"></column>
+        <generator class="native"></generator>
+    </id>
+    <property name="name" type="java.lang.String">
+        <column name="stu_Name" length="20"></column>
+    </property>
+    <property name="age" type="java.lang.Integer">
+        <column name="stu_Age" length="3"></column>
+    </property>
+    <property name="gender" type="java.lang.String">
+        <column name="stu_Gender" length="5"></column>
+    </property>
+    <property name="email" type="java.lang.String">
+        <column name="stu_Email" length="30"></column>
+    </property>
+ </class>
+</hibernate-mapping>
