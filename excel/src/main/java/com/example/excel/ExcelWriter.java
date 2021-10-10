@@ -5,11 +5,11 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Field;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
-import org.apache.commons.collections4.map.HashedMap;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.DataFormat;
 import org.apache.poi.ss.usermodel.Row;
@@ -32,6 +32,10 @@ public class ExcelWriter {
 	private boolean autoClose = true;
 	// 输出流
 	private OutputStream outputStream;
+	// 输出文件
+	private File file;
+	//标记file是否要删除，默认不删除
+	private boolean deleted = false;
 	private Workbook workbook;
 	private boolean isTemplate = false;
 
@@ -68,6 +72,7 @@ public class ExcelWriter {
 		ExcelWriter excelWriter = new ExcelWriter();
 		try {
 			excelWriter.outputStream = new FileOutputStream(file);
+			excelWriter.file = file;
 		} catch (FileNotFoundException e) {
 			logger.warning("创建输出流异常");
 			e.printStackTrace();
@@ -85,7 +90,12 @@ public class ExcelWriter {
 		excelWriter.outputStream = outputStream;
 		return excelWriter;
 	}
-
+	/**
+	 * @return
+	 */
+	public static ExcelWriter writeExcel() {
+		return new ExcelWriter();
+	}
 	/**
 	 * 是否自动关闭资源
 	 * 
@@ -133,17 +143,25 @@ public class ExcelWriter {
 		if (!sourceFile.isFile()) {
 			throw new Exception(templatePath + "不是模板文件");
 		}
-		String tempFile = sourceFile.getParent() + File.separator + System.currentTimeMillis() + sourceFile.getName();
-		File targetFile = new File(tempFile);
+		if(file == null) {
+			this.deleted = true;
+			String tempFilePath = sourceFile.getParent() + File.separator + System.currentTimeMillis() + sourceFile.getName();
+			file = new File(tempFilePath);
+		}
 		try {
-			FileUtil.copyFile(targetFile, sourceFile);
-			this.workbook = WorkbookUtil.createWorkbook(targetFile);
+			if(outputStream == null) {
+				outputStream = new FileOutputStream(file);
+			}
+			
+			FileUtil.copyFile(file, sourceFile);
+			this.workbook = WorkbookUtil.createWorkbook(file);
 			this.isTemplate = true;
 		} catch (Exception e) {
 			logger.info("创建workbook模板发生异常。");
+			e.printStackTrace();
 			throw new Exception("创建workbook模板发生异常。");
 		} finally {
-			targetFile.deleteOnExit();
+			//targetFile.delete();
 		}
 		return this;
 	}
@@ -377,7 +395,7 @@ public class ExcelWriter {
 				// 记录表头列索引
 				int headColCount = 0;
 				// 记录表头列索引和名字映射
-				Map<Integer, String> columnMap = new HashedMap<Integer, String>();
+				Map<Integer, String> columnMap = new HashMap<Integer, String>();
 				Map<String, Object> data = mapDatas.get(0);
 				// 先写表头行数据
 				Row headRow = sheet.createRow(0);
@@ -409,6 +427,13 @@ public class ExcelWriter {
 	 * @param workbook
 	 */
 	public ExcelWriter writeOut() {
+	   return writeOut(outputStream);
+	}
+	/**
+	 * workbook写入指定输出流
+	 * @param workbook
+	 */
+	public ExcelWriter writeOut(OutputStream outputStream) {
 		try {
 			workbook.write(outputStream);
 			outputStream.flush();
@@ -422,7 +447,6 @@ public class ExcelWriter {
 		}
 		return this;
 	}
-
 	/**
 	 * 释放资源
 	 * 
@@ -445,6 +469,10 @@ public class ExcelWriter {
 			logger.warning("关闭IO资源发生异常");
 			ex.printStackTrace();
 			return false;
+		}finally {
+			if(deleted) {
+				file.delete();
+			}
 		}
 		return true;
 	}
@@ -458,7 +486,7 @@ public class ExcelWriter {
 	 */
 	public <T> void withFmtMap(Workbook workbook, Class<T> clazz) {
 		if (fmtMap == null) {
-			fmtMap = new HashedMap<String, CellStyle>();
+			fmtMap = new HashMap<String, CellStyle>();
 		}
 		Field[] fields = clazz.getDeclaredFields();
 		for (int i = 0, len = fields.length; i < len; i++) {

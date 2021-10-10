@@ -8,11 +8,11 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
-import org.apache.commons.collections4.map.HashedMap;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -325,7 +325,9 @@ public class ExcelReader {
 			logger.info("发生未知异常");
 			e.printStackTrace();
 		} finally {
-			complete();
+			if(autoClose) {
+				complete();
+			}
 		}
 		return result;
 	}
@@ -383,7 +385,7 @@ public class ExcelReader {
 	 * @throws Exception
 	 */
 	private <T> Map<Integer, T> rowDataMap(Sheet sheet, int startRow, Class<T> clazz) throws Exception {
-		Map<Integer, T> result = new HashedMap<Integer, T>();
+		Map<Integer, T> result = new HashMap<Integer, T>();
 		try {
 			if (sheet == null) {
 				logger.info("不能解析空的sheet表");
@@ -411,11 +413,7 @@ public class ExcelReader {
 			logger.info("读取" + sheet.getSheetName() + "表出现异常");
 			e.printStackTrace();
 
-		} finally {
-			if (autoClose) {
-				complete();
-			}
-		}
+		} 
 		return result;
 
 	}
@@ -445,7 +443,7 @@ public class ExcelReader {
 						+ "，请拆分sheet表。");
 			}
 			int rowLastNum = sheet.getLastRowNum();
-			Map<Integer, String> columnNameMap = new HashedMap<Integer, String>();
+			Map<Integer, String> columnNameMap = new HashMap<Integer, String>();
 			int headRowIndex = startRow - 1;
 			Row headRow = sheet.getRow(headRowIndex < 0 ? 0 : headRowIndex);
 			int colLastNum = headRow.getLastCellNum();
@@ -520,7 +518,7 @@ public class ExcelReader {
 	 * @return
 	 */
 	private Map<String, Object> analysisRow(Row row, Map<Integer, String> columnFieldMap) {
-		Map<String, Object> result = new HashedMap<String, Object>();
+		Map<String, Object> result = new HashMap<String, Object>();
 		for (Integer colIndex : columnFieldMap.keySet()) {
 			Cell cell = row.getCell(colIndex);
 			if (cell != null) {

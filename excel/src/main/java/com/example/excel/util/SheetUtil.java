@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
-import org.apache.commons.collections4.map.HashedMap;
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -156,7 +155,7 @@ public class SheetUtil {
 		Row row = sheet.getRow(headLastRowNum);
 		int colCount = row.getLastCellNum();
 		Map<String, String> map = headLastRowField(clazz);
-		Map<Integer, String> result = new HashedMap<Integer, String>();
+		Map<Integer, String> result = new HashMap<Integer, String>();
 		for (int i = 0; i < colCount; i++) {
 			String name = null;
 			if (isMergeRegion(sheet, headLastRowNum, i)) {
