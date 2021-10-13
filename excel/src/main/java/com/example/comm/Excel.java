@@ -21,7 +21,7 @@ public @interface Excel {
     /**
      * 列名字
      */
-    String[] name() default "";
+    String[] name() default {};
     /**
      * 格式化
      */

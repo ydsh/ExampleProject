@@ -1,5 +1,6 @@
 package com.example.excel.util;
 
+import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Calendar;
@@ -13,6 +14,8 @@ import org.apache.poi.ss.usermodel.Comment;
 import org.apache.poi.ss.usermodel.Drawing;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFRichTextString;
+
+import com.example.comm.Excel;
 
 public class CellUtil {
 	private static final Logger logger = Logger.getLogger(CellUtil.class.getName());
@@ -152,7 +155,52 @@ public class CellUtil {
 		}
 		return obj;
 	}
-
+	/**
+	 * 获取字段所在列序号
+	 * @param <T>
+	 * @param fieldName
+	 * @param clazz
+	 * @return
+	 */
+    public static <T> int columnIndex(String fieldName,Class<T> clazz) {
+    	int result = -1;
+    	try {
+			Field field = clazz.getDeclaredField(fieldName);
+			if(field.isAnnotationPresent(Excel.class)) {
+				Excel ex = field.getAnnotation(Excel.class);
+				result = ex.order();
+			}
+		} catch (NoSuchFieldException | SecurityException e) {
+			logger.warning("无法获取该字段所在单元格列序号");
+			e.printStackTrace();
+		}
+    	return result;
+    }
+    /**
+     * 获取字段所在列的名字，如果是复杂表头则返回最后一行表头列的名字。
+     * @param <T>
+     * @param fieldName
+     * @param clazz
+     * @return
+     */
+    public static <T> String columnName(String fieldName,Class<T> clazz) {
+    	String result = "";
+    	try {
+    		Field field = clazz.getDeclaredField(fieldName);
+			if(field.isAnnotationPresent(Excel.class)) {
+				Excel ex = field.getAnnotation(Excel.class);
+				String[] names = ex.name();
+				if(names!=null&&names.length > 0) {
+					result = names[names.length-1];
+				}
+				
+			}
+		} catch (Exception e) {
+			logger.warning("无法获取该字段所在列的名字");
+			e.printStackTrace();
+		}
+    	return result;
+    }
 	/**
 	 * 设置单元格批注
 	 * 

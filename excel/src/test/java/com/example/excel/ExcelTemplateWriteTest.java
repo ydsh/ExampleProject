@@ -2,6 +2,8 @@ package com.example.excel;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
@@ -79,9 +81,9 @@ class ExcelTemplateWriteTest {
 				return result;
 			};
 			List<User> list = ExcelReader.readExcel(sourceFilePath).build().doReadCheck(User.class, userCheck);
-			//File file = new File("C:\\Users\\Disen\\OneDrive\\桌面\\123456.xlsx");
-			//excelWriter.writeOut(new FileOutputStream(file));
-			excelWriter.writeOut();
+			File file = new File("C:\\Users\\Disen\\OneDrive\\桌面\\123456.xlsx");
+			excelWriter.writeOut(new FileOutputStream(file));
+			//excelWriter.writeOut();
 			excelWriter.complete();
 			System.err.println(list.size());
 			System.err.println(msgs);

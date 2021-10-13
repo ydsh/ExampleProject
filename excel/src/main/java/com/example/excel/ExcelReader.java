@@ -496,13 +496,19 @@ public class ExcelReader {
 				Field field = clazz.getDeclaredField(fieldName);
 				// setter方法必须只带一个参数，并且参数类型与子段类型一致
 				Method method = clazz.getDeclaredMethod(setterMethodName, field.getType());
+				//TODO
 				// BigDecimal类型转其他数值类型
 				if ("BigDecimal".equals(value.getClass().getSimpleName())
 						&& !"BigDecimal".equals(field.getType().getSimpleName())) {
 					value = ExcelUtils.bigDecimalToNum(new BigDecimal(value.toString()),
 							field.getType().getSimpleName());
 				}
-				method.invoke(t, value);
+				if(field.getType().isInstance(value)) {
+					method.invoke(t, value);
+				}else {
+					String message =String.format("类型不匹配，字段%s期望的类型是%s,实际得到的是%s%n", CellUtil.columnName(fieldName, clazz),field.getType().getName(),value.getClass().getName());
+					throw new Exception(message);
+				}
 
 			}
 		}
