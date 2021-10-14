@@ -218,4 +218,38 @@ public class CellUtil {
 		comment.setString(new XSSFRichTextString(value));
 		cell.setCellComment(comment);
 	}
+	/**
+	 * 判断基本类型和包装类型
+	 * @param primitive
+	 * @param wrap
+	 * @return
+	 */
+	public static boolean isPrimitiveAndWrap(String primitive,String wrap) {
+		
+		if("int".equals(primitive)&&"Integer".equals(wrap)) {
+			return true;
+		}
+		if("long".equals(primitive)&&"Long".equals(wrap)) {
+			return true;
+		}
+		if("short".equals(primitive)&&"Short".equals(wrap)) {
+			return true;
+		}
+		if("char".equals(primitive)&&"Character".equals(wrap)) {
+			return true;
+		}
+		if("byte".equals(primitive)&&"Byte".equals(wrap)) {
+			return true;
+		}
+		if("boolean".equals(primitive)&&"Boolean".equals(wrap)) {
+			return true;
+		}
+		if("double".equals(primitive)&&"Double".equals(wrap)) {
+			return true;
+		}
+		if("float".equals(primitive)&&"Float".equals(wrap)) {
+			return true;
+		}
+		return false;
+	}
 }

@@ -503,10 +503,11 @@ public class ExcelReader {
 					value = ExcelUtils.bigDecimalToNum(new BigDecimal(value.toString()),
 							field.getType().getSimpleName());
 				}
-				if(field.getType().isInstance(value)) {
+				if(field.getType().isInstance(value)||(value instanceof Number&&CellUtil.isPrimitiveAndWrap(field.getType().getSimpleName(), value.getClass().getSimpleName()))) {
 					method.invoke(t, value);
 				}else {
-					String message =String.format("类型不匹配，字段%s期望的类型是%s,实际得到的是%s%n", CellUtil.columnName(fieldName, clazz),field.getType().getName(),value.getClass().getName());
+					String message =String.format("类型不匹配，字段%s期望的类型是%s,实际得到的是%s%n", 
+							CellUtil.columnName(fieldName, clazz),field.getType().getName(),value.getClass().getName());
 					throw new Exception(message);
 				}
 

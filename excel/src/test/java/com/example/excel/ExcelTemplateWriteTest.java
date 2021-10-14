@@ -33,7 +33,7 @@ class ExcelTemplateWriteTest {
 		try {
 
 			List<String> msgs = new ArrayList<String>();
-			ExcelWriter excelWriter = ExcelWriter.writeExcel().withAutoClose(false)
+			ExcelWriter excelWriter = ExcelWriter.writeExcel("C:\\Users\\Disen\\OneDrive\\桌面\\123456.xlsx").withAutoClose(false)
 					.build(sourceFilePath);
 			Workbook workbook = excelWriter.getWorkbook();
 			CellStyle cellStyle = workbook.createCellStyle();
@@ -81,9 +81,9 @@ class ExcelTemplateWriteTest {
 				return result;
 			};
 			List<User> list = ExcelReader.readExcel(sourceFilePath).build().doReadCheck(User.class, userCheck);
-			File file = new File("C:\\Users\\Disen\\OneDrive\\桌面\\123456.xlsx");
-			excelWriter.writeOut(new FileOutputStream(file));
-			//excelWriter.writeOut();
+			//File file = new File("C:\\Users\\Disen\\OneDrive\\桌面\\123456.xls");
+			//excelWriter.writeOut(new FileOutputStream(file));
+		    excelWriter.writeOut();
 			excelWriter.complete();
 			System.err.println(list.size());
 			System.err.println(msgs);

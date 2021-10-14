@@ -38,7 +38,7 @@ public class ExcelWriter {
 	private boolean deleted = false;
 	private Workbook workbook;
 	private boolean isTemplate = false;
-
+    //全局样式
 	private Map<String, CellStyle> fmtMap;
 
 	/**
@@ -143,16 +143,17 @@ public class ExcelWriter {
 		if (!sourceFile.isFile()) {
 			throw new Exception(templatePath + "不是模板文件");
 		}
-		if(file == null) {
-			this.deleted = true;
-			String tempFilePath = sourceFile.getParent() + File.separator + System.currentTimeMillis() + sourceFile.getName();
-			file = new File(tempFilePath);
-		}
 		try {
-			if(outputStream == null) {
-				outputStream = new FileOutputStream(file);
+			if(file == null) {
+				this.deleted = true;
+				String tempFilePath = sourceFile.getParent() + File.separator + System.currentTimeMillis() + sourceFile.getName();
+				file = new File(tempFilePath);
+			}else if(!((file.getName().toLowerCase().endsWith(WorkbookUtil.XLS.toLowerCase()) && 
+					templatePath.toLowerCase().endsWith(WorkbookUtil.XLS.toLowerCase()))||
+					(file.getName().toLowerCase().endsWith(WorkbookUtil.XLSX.toLowerCase()) && 
+							templatePath.toLowerCase().endsWith(WorkbookUtil.XLSX.toLowerCase())))){
+				throw new Exception("写入文件和模板文件格式不匹配。");
 			}
-			
 			FileUtil.copyFile(file, sourceFile);
 			this.workbook = WorkbookUtil.createWorkbook(file);
 			this.isTemplate = true;
