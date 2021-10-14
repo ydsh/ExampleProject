@@ -32,10 +32,10 @@ public class ExcelWriter {
 	private boolean autoClose = true;
 	// 输出流
 	private OutputStream outputStream;
-	// 输出文件
+	//
 	private File file;
-	//标记file是否要删除，默认不删除
-	private boolean deleted = false;
+	//中间文件
+	private File cacheFile;
 	private Workbook workbook;
 	private boolean isTemplate = false;
     //全局样式
@@ -144,18 +144,16 @@ public class ExcelWriter {
 			throw new Exception(templatePath + "不是模板文件");
 		}
 		try {
-			if(file == null) {
-				this.deleted = true;
-				String tempFilePath = sourceFile.getParent() + File.separator + System.currentTimeMillis() + sourceFile.getName();
-				file = new File(tempFilePath);
-			}else if(!((file.getName().toLowerCase().endsWith(WorkbookUtil.XLS.toLowerCase()) && 
+			String tempFilePath = sourceFile.getParent() + File.separator + System.currentTimeMillis() + sourceFile.getName();
+			cacheFile = new File(tempFilePath);
+			if(!((file.getName().toLowerCase().endsWith(WorkbookUtil.XLS.toLowerCase()) && 
 					templatePath.toLowerCase().endsWith(WorkbookUtil.XLS.toLowerCase()))||
 					(file.getName().toLowerCase().endsWith(WorkbookUtil.XLSX.toLowerCase()) && 
 							templatePath.toLowerCase().endsWith(WorkbookUtil.XLSX.toLowerCase())))){
 				throw new Exception("写入文件和模板文件格式不匹配。");
 			}
-			FileUtil.copyFile(file, sourceFile);
-			this.workbook = WorkbookUtil.createWorkbook(file);
+			FileUtil.copyFile(cacheFile, sourceFile);
+			this.workbook = WorkbookUtil.createWorkbook(cacheFile);
 			this.isTemplate = true;
 		} catch (Exception e) {
 			logger.info("创建workbook模板发生异常。");
@@ -471,8 +469,8 @@ public class ExcelWriter {
 			ex.printStackTrace();
 			return false;
 		}finally {
-			if(deleted) {
-				file.delete();
+			if(cacheFile!=null) {
+				cacheFile.delete();
 			}
 		}
 		return true;
