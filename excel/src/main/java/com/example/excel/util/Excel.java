@@ -1,4 +1,4 @@
-package com.example.comm;
+package com.example.excel.util;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -23,7 +23,7 @@ public @interface Excel {
      */
     String[] name() default {};
     /**
-     * 格式化
+     * 格式化输出到excel
      */
     String fmt() default "";
 }

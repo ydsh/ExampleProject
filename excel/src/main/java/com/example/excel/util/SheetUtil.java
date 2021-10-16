@@ -21,8 +21,6 @@ import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.util.CellRangeAddress;
 
-import com.example.comm.Excel;
-
 public class SheetUtil {
 	private static final Logger logger = Logger.getLogger(SheetUtil.class.getName());
 
@@ -68,19 +66,11 @@ public class SheetUtil {
 	 * @param clazz
 	 */
 	public static <T> void headRowWrite(Sheet sheet, Class<T> clazz) {
-		int headRowCount = headRowCount(clazz);
-		int headColCount = headColCount(clazz);
+		//int headRowCount = headRowCount(clazz);
+		//int headColCount = headColCount(clazz);
 		Workbook workbook = sheet.getWorkbook();
 		CellStyle cellStyle = workbook.createCellStyle();
 		Font font = workbook.createFont();
-		// 创建表头单元格和设置样式
-		for (int i = 0; i < headRowCount; i++) {
-			Row row = sheet.createRow(i);
-			for (int k = 0; k < headColCount; k++) {
-				Cell cell = row.createCell(k);
-				cell.setCellStyle(headCellStyle(cellStyle,font));
-			}
-		}
 		// 表头单元格填充数据和合并
 		Map<String, List<CellPos>> map = headColCellsMap(clazz);
 		for (String name : map.keySet()) {
@@ -88,7 +78,10 @@ public class SheetUtil {
 			if (list != null && !list.isEmpty()) {
 				CellPos cellPos = list.get(0);
 				// 填充数据
-				sheet.getRow(cellPos.getRowIndex()).getCell(cellPos.getColIndex()).setCellValue(name);
+				Row row = getRow(sheet, cellPos.getRowIndex());
+				Cell cell = RowUtil.getCell(row, cellPos.getColIndex());
+				cell.setCellValue(name);
+				cell.setCellStyle(headCellStyle(cellStyle,font));
 				// 合并单元格
 				if (list.size() == 2) {
 					int firstRowIndex = cellPos.getRowIndex();
@@ -115,29 +108,27 @@ public class SheetUtil {
 	public static <T> int headLastRowNum(Sheet sheet, Class<T> clazz) {
 		int result = -1;
 		Map<Integer, String> headLastRowNames = headLastRowNames(clazz);
+		boolean ishead = false;
 		int rowCount = sheet.getLastRowNum();
 		for (int i = 0; i <= rowCount; i++) {
-			Row row = sheet.getRow(i);
+			Row row = getRow(sheet,i);
 			int cellCount = row.getLastCellNum();
 			result = i;
 			int count = 0;
 			for (int k = 0; k < cellCount; k++) {
-				String name = row.getCell(k).getStringCellValue();
+				String name = RowUtil.getCell(row,k).getStringCellValue();
 				if (isMergeRegion(sheet, i, k)) {
 					name = getHeadMergeRegionValue(sheet, i, k);
-
-				}
-				if (name != null && !headLastRowNames.containsValue(name)) {
-					result = -1;
-					break;
 				}
 				if (name != null && headLastRowNames.containsValue(name)) {
 					count++;
 				}
 			}
 			if (count == headLastRowNames.size()) {
+				ishead = true;
 				break;
 			}
+			if(ishead) break;
 		}
 		return result;
 	}
@@ -152,7 +143,7 @@ public class SheetUtil {
 	 */
 	public static <T> Map<Integer, String> templateColumnFieldMap(Sheet sheet, Class<T> clazz) {
 		int headLastRowNum = headLastRowNum(sheet, clazz);
-		Row row = sheet.getRow(headLastRowNum);
+		Row row = getRow(sheet, headLastRowNum);
 		int colCount = row.getLastCellNum();
 		Map<String, String> map = headLastRowField(clazz);
 		Map<Integer, String> result = new HashMap<Integer, String>();
@@ -162,9 +153,7 @@ public class SheetUtil {
 				name = getHeadMergeRegionValue(sheet, headLastRowNum, i);
 
 			} else {
-				if (row.getCell(i) != null) {
-					name = row.getCell(i).getStringCellValue();
-				}
+				name = RowUtil.getCell(row, i).getStringCellValue();
 			}
 			if (name != null && map.containsKey(name)) {
 				result.put(i, map.get(name));
@@ -183,6 +172,7 @@ public class SheetUtil {
 		Map<Integer, String> columnMap = new HashMap<Integer, String>();
 		Field[] fileds = clazz.getDeclaredFields();
 		for (Field field : fileds) {
+			field.setAccessible(true);
 			// 判断对象属性是否存在Excel注解
 			if (field.isAnnotationPresent(Excel.class)) {
 				// 获取Excel注解
@@ -209,6 +199,7 @@ public class SheetUtil {
 		Field[] fields = clazz.getDeclaredFields();
 		for (int i = 0, len = fields.length; i < len; i++) {
 			Field field = fields[i];
+			field.setAccessible(true);
 			// 判断字段是否标注Excel注解
 			if (field.isAnnotationPresent(Excel.class)) {
 				// 获取Excel注解
@@ -236,6 +227,7 @@ public class SheetUtil {
 		Field[] fields = clazz.getDeclaredFields();
 		for (int i = 0, len = fields.length; i < len; i++) {
 			Field field = fields[i];
+			field.setAccessible(true);
 			// 判断字段是否标注Excel注解
 			if (field.isAnnotationPresent(Excel.class)) {
 				// 获取Excel注解
@@ -293,8 +285,8 @@ public class SheetUtil {
 			int lastColIndex = cellRangeAddress.getLastColumn();
 			if (firstRowIndex <= rowIndex && rowIndex <= lastRowIndex && firstColIndex <= colIndex
 					&& colIndex <= lastColIndex) {
-				Row row = sheet.getRow(firstRowIndex);
-				Cell cell = row.getCell(firstColIndex);
+				Row row = SheetUtil.getRow(sheet, firstRowIndex);
+				Cell cell = RowUtil.getCell(row,firstColIndex);
 
 				return cell.getStringCellValue();
 			}
@@ -303,7 +295,7 @@ public class SheetUtil {
 	}
 
 	/**
-	 * 表头列名和单元个区域映射，也就是说一个列名占据多少个单元格
+	 * 表头列名和单元格区域映射，也就是说一个列名占据多少个单元格
 	 * 
 	 * @param <T>
 	 * @param sheet
@@ -316,6 +308,7 @@ public class SheetUtil {
 		Field[] fields = clazz.getDeclaredFields();
 		for (int i = 0, len = fields.length; i < len; i++) {
 			Field field = fields[i];
+			field.setAccessible(true);
 			// 判断字段是否标注Excel注解
 			if (field.isAnnotationPresent(Excel.class)) {
 				// 获取Excel注解
@@ -370,6 +363,7 @@ public class SheetUtil {
 		Field[] fields = clazz.getDeclaredFields();
 		for (int i = 0, len = fields.length; i < len; i++) {
 			Field field = fields[i];
+			field.setAccessible(true);
 			// 判断字段是否标注Excel注解
 			if (field.isAnnotationPresent(Excel.class)) {
 				// 获取Excel注解
@@ -404,11 +398,12 @@ public class SheetUtil {
 	 * @param clazz
 	 * @return
 	 */
-	private static <T> int headColCount(Class<T> clazz) {
+	public static <T> int headColCount(Class<T> clazz) {
 		int result = 0;
 		Field[] fields = clazz.getDeclaredFields();
 		for (int i = 0, len = fields.length; i < len; i++) {
 			Field field = fields[i];
+			field.setAccessible(true);
 			// 判断字段是否标注Excel注解
 			if (field.isAnnotationPresent(Excel.class)) {
 				// 获取Excel注解

@@ -20,9 +20,9 @@ import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFClientAnchor;
 import org.junit.jupiter.api.Test;
 
-import com.example.comm.Excel;
 import com.example.comm.User;
 import com.example.excel.util.CellUtil;
+import com.example.excel.util.Excel;
 import com.example.excel.util.ExcelDataCheck;
 
 public class ExceTest {
@@ -162,7 +162,7 @@ public class ExceTest {
 			}
 			//int len ="abc123哈哈哈凝视对方".length();
 			//System.err.println("长度："+len);
-			ExcelWriter.writeExcel("C:\\Users\\Disen\\OneDrive\\桌面\\mapData.xlsx").build().doWriteMap("mapData", list);
+			ExcelWriter.writeExcel("C:\\Users\\Disen\\OneDrive\\桌面\\mapData.xlsx").build().mapDataToSheet("mapData", list);
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();

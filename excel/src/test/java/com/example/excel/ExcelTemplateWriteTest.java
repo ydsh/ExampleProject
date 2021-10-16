@@ -2,8 +2,6 @@ package com.example.excel;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.File;
-import java.io.FileOutputStream;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,9 +17,9 @@ import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFClientAnchor;
 import org.junit.jupiter.api.Test;
 
-import com.example.comm.Excel;
 import com.example.comm.User;
 import com.example.excel.util.CellUtil;
+import com.example.excel.util.Excel;
 import com.example.excel.util.ExcelDataCheck;
 
 class ExcelTemplateWriteTest {
@@ -45,7 +43,7 @@ class ExcelTemplateWriteTest {
 			ExcelDataCheck<User> userCheck = (int rowIndex, User user) -> {
 				boolean result = true;
 				try {
-					if (user.getAge() > 100 || user.getAge() <= 0) {
+					if (user.getAge() > 2000 || user.getAge() <= 0) {
 						Field field = User.class.getDeclaredField("age");
 						if (field.getAnnotation(Excel.class) != null) {
 							Excel ex = field.getAnnotation(Excel.class);
@@ -59,7 +57,7 @@ class ExcelTemplateWriteTest {
 						}
 						result &= false;
 					}
-					if (user.getIntro() == null || user.getIntro().isBlank() || user.getIntro().length() < 200) {
+					if (user.getIntro() == null || user.getIntro().isBlank() || user.getIntro().length() < 1) {
 						Field field = User.class.getDeclaredField("intro");
 						if (field.getAnnotation(Excel.class) != null) {
 							Excel ex = field.getAnnotation(Excel.class);
@@ -80,13 +78,13 @@ class ExcelTemplateWriteTest {
 				}
 				return result;
 			};
-			List<User> list = ExcelReader.readExcel(sourceFilePath).build().doReadCheck(User.class, userCheck);
+			List<User> list = ExcelReader.readExcel(sourceFilePath).registerConverter("age", (Cell cell)->1000).build().doRead(User.class);
 			//File file = new File("C:\\Users\\Disen\\OneDrive\\桌面\\123456.xls");
 			//excelWriter.writeOut(new FileOutputStream(file));
 		    excelWriter.writeOut();
 			excelWriter.complete();
 			System.err.println(list.size());
-			System.err.println(msgs);
+			System.err.println(list);
 			assertTrue(true);
 		} catch (Exception e) {
 			e.printStackTrace();

@@ -1,15 +1,12 @@
 package com.example.excel.util;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.Row;
-
-import com.example.comm.Excel;
 
 public class RowUtil {
 	//private static final Logger logger = Logger.getLogger(RowUtil.class.getName());
@@ -41,7 +38,7 @@ public class RowUtil {
 				}
 			}
 			if (colIndex != -1) {
-				row.getCell(colIndex).setCellStyle(cellStyle);
+				getCell(row, colIndex).setCellStyle(cellStyle);
 			}
 		}
 	}
@@ -58,6 +55,7 @@ public class RowUtil {
 		Field[] fields = clazz.getDeclaredFields();
 		for (int i = 0, len = fields.length; i < len; i++) {
 			Field field = fields[i];
+			field.setAccessible(true);
 			// 判断字段是否标注Excel注解
 			if (field.isAnnotationPresent(Excel.class)) {
 				// 获取Excel注解
@@ -68,60 +66,6 @@ public class RowUtil {
 			}
 		}
 		return result;
-	}
-
-	/**
-	 * 将数据写入到excel表行中
-	 * 
-	 * @param <T>
-	 * @param row
-	 * @param columnMap
-	 * @param data
-	 * @throws Exception
-	 */
-	public static <T> void dataToRow(Row row, Map<Integer, String> columnMap, T data) throws Exception {
-		@SuppressWarnings("unchecked")
-		Class<T> clazz = (Class<T>) data.getClass();
-		// excel表格数据列与对象属性映射
-		// Map<Integer, String> columnMap = CellUtil.columnFieldMap(clazz);
-		// 将数据据写入单元格
-		for (Integer c : columnMap.keySet()) {
-			Cell cell = getCell(row, c);
-			String fieldName = columnMap.get(c);
-			String getterName = "get" + fieldName.substring(0, 1).toUpperCase() + fieldName.substring(1);
-			Method[] methods = clazz.getDeclaredMethods();
-			for (int i = 0, len = methods.length; i < len; i++) {
-				if (getterName.equals(methods[i].getName())) {
-					// 数据写入单元格
-					CellUtil.setCellValue(cell, methods[i].invoke(data));
-				}
-			}
-		}
-	}
-	/**
-	 * map数据写入到excel表行中
-	 * @param row
-	 * @param columnMap
-	 * @param mapData
-	 * @throws Exception
-	 */
-	public static void mapDataToRow(Row row, Map<Integer, String> columnMap, Map<String,Object> mapData) throws Exception{
-		for(String key : mapData.keySet()) {
-			int colIndex = -1;
-			if(columnMap.containsValue(key)) {
-				for(Map.Entry<Integer, String> entry:columnMap.entrySet()) {
-					if(key.equals(entry.getValue())) {
-						colIndex = entry.getKey();
-					}
-				}
-			}else {
-				colIndex = columnMap.size();
-				columnMap.put(colIndex, key);
-			}
-			
-			Cell cell = getCell(row, colIndex);
-			CellUtil.setCellValue(cell, mapData.get(key));
-		}
 	}
 
 	/**

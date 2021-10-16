@@ -15,8 +15,6 @@ import org.apache.poi.ss.usermodel.Drawing;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFRichTextString;
 
-import com.example.comm.Excel;
-
 public class CellUtil {
 	private static final Logger logger = Logger.getLogger(CellUtil.class.getName());
 
@@ -166,6 +164,7 @@ public class CellUtil {
     	int result = -1;
     	try {
 			Field field = clazz.getDeclaredField(fieldName);
+			field.setAccessible(true);
 			if(field.isAnnotationPresent(Excel.class)) {
 				Excel ex = field.getAnnotation(Excel.class);
 				result = ex.order();
@@ -187,6 +186,7 @@ public class CellUtil {
     	String result = "";
     	try {
     		Field field = clazz.getDeclaredField(fieldName);
+    		field.setAccessible(true);
 			if(field.isAnnotationPresent(Excel.class)) {
 				Excel ex = field.getAnnotation(Excel.class);
 				String[] names = ex.name();
@@ -219,12 +219,21 @@ public class CellUtil {
 		cell.setCellComment(comment);
 	}
 	/**
+	 * 判断数字类型是否是对应的基本类型和包装类型
+	 * @param p
+	 * @param w
+	 * @return
+	 */
+	public static boolean isSimilarNumType(String p,String w) {
+		return isPrimitiveAndWrap(p, w)||isPrimitiveAndWrap(w, p);
+	}
+	/**
 	 * 判断基本类型和包装类型
 	 * @param primitive
 	 * @param wrap
 	 * @return
 	 */
-	public static boolean isPrimitiveAndWrap(String primitive,String wrap) {
+	private static boolean isPrimitiveAndWrap(String primitive,String wrap) {
 		
 		if("int".equals(primitive)&&"Integer".equals(wrap)) {
 			return true;

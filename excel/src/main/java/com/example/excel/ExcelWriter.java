@@ -5,11 +5,14 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.logging.Logger;
 
+import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.DataFormat;
 import org.apache.poi.ss.usermodel.Row;
@@ -17,12 +20,13 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 
-import com.example.comm.Excel;
 import com.example.excel.util.CellUtil;
+import com.example.excel.util.Excel;
 import com.example.excel.util.FileUtil;
 import com.example.excel.util.RowUtil;
 import com.example.excel.util.SheetUtil;
 import com.example.excel.util.WorkbookUtil;
+import com.example.excel.util.WriteConverter;
 
 public class ExcelWriter {
 	private static final Logger logger = Logger.getLogger(ExcelWriter.class.getName());
@@ -32,25 +36,55 @@ public class ExcelWriter {
 	private boolean autoClose = true;
 	// 输出流
 	private OutputStream outputStream;
-	//
+	//写入的文件
 	private File file;
 	//中间文件
 	private File cacheFile;
+	//工作簿
 	private Workbook workbook;
+	//是否是模板
 	private boolean isTemplate = false;
     //全局样式
 	private Map<String, CellStyle> fmtMap;
-
+	//转换器集合
+    private Map<String,WriteConverter> converters;
+    //默认转换器
+    private WriteConverter defaultConverter = (Cell cell,Object obj)-> CellUtil.setCellValue(cell, obj);
 	/**
 	 * 不提供外部创建实例
 	 */
 	private ExcelWriter() {
+		converters = new HashMap<String, WriteConverter>();
 	}
-
+    /**
+     * 获取工作簿实例
+     * @return
+     */
 	public Workbook getWorkbook() {
 		return workbook;
 	}
-
+	/**
+	 * 注册传转换器
+	 * @param converters
+	 * @return
+	 */
+	public ExcelWriter registerConverter(Map<String, WriteConverter> converters) {
+		for(Entry<String,  WriteConverter> entry : converters.entrySet()) {
+			registerConverter(entry.getKey(),entry.getValue());
+		}
+		return this;
+	}
+	/**
+	 * 给指定的字段注册传转换器
+	 * @param fieldName
+	 * @param converter
+	 * @return
+	 */
+   public ExcelWriter registerConverter(String fieldName,WriteConverter converter){
+	   converters.put(fieldName, converter);
+	   return this;
+	   
+   }
 	/**
 	 * 写入给定的文件
 	 * 
@@ -191,7 +225,8 @@ public class ExcelWriter {
 			columnMap = SheetUtil.columnFieldMap(t.getClass());
 			startRow = SheetUtil.headRowCount(t.getClass());
 		}
-		this.doWrite(sheet, startRow, columnMap, dataList);
+		
+		this.dataToSheet(sheet, startRow, columnMap, dataList);
 		return this;
 	}
 
@@ -220,7 +255,7 @@ public class ExcelWriter {
 			columnMap = SheetUtil.columnFieldMap(t.getClass());
 		}
 
-		this.doWrite(sheet, startRow, columnMap, dataList);
+		this.dataToSheet(sheet, startRow, columnMap, dataList);
 		return this;
 	}
 
@@ -253,7 +288,7 @@ public class ExcelWriter {
 			columnMap = SheetUtil.columnFieldMap(t.getClass());
 			startRow = SheetUtil.headRowCount(t.getClass());
 		}
-		this.doWrite(sheet, startRow, columnMap, dataList);
+		this.dataToSheet(sheet, startRow, columnMap, dataList);
 		return this;
 	}
 
@@ -284,13 +319,12 @@ public class ExcelWriter {
 			SheetUtil.headRowWrite(sheet, t.getClass());
 			columnMap = SheetUtil.columnFieldMap(t.getClass());
 		}
-		this.doWrite(sheet, startRow, columnMap, dataList);
+		this.dataToSheet(sheet, startRow, columnMap, dataList);
 		return this;
 	}
 
 	/**
-	 * 指定sheet表格写数据
-	 * 
+	 * 向excel的sheet表写数据
 	 * @param <T>
 	 * @param sheet
 	 * @param startRow
@@ -299,7 +333,7 @@ public class ExcelWriter {
 	 * @return
 	 * @throws Exception
 	 */
-	private <T> ExcelWriter doWrite(Sheet sheet, int startRow, Map<Integer, String> columnMap, List<T> dataList)
+	private <T> ExcelWriter dataToSheet(Sheet sheet, int startRow, Map<Integer, String> columnMap, List<T> dataList)
 			throws Exception {
 		if (workbook == null) {
 			logger.warning("工作簿不存在！");
@@ -329,20 +363,53 @@ public class ExcelWriter {
 		withFmtMap(workbook, clazz);
 		logger.info("开始向" + sheet.getSheetName() + "表写入数据。");
 		for (int i = 0, len = dataList.size(); i < len; i++) {
-			Row row = SheetUtil.getRow(sheet, i + startRow);
-			// 数据写入到excel表行中
-			RowUtil.dataToRow(row, columnMap, dataList.get(i));
-			// 设置行单元格注解定义的格式
-			RowUtil.setRowCellFormat(row, fmtMap, columnMap, clazz);
-			logger.info("第" + (i + 1) + "条数据写入完成。");
+			 Row row = SheetUtil.getRow(sheet, i + startRow);
+			 // 设置行单元格注解定义的格式
+			 RowUtil.setRowCellFormat(row, fmtMap, columnMap, clazz);
+			 // 数据写入到excel表行中
+			 dataToRow(row, columnMap, dataList.get(i));
+			logger.info("excel的"+sheet.getSheetName()+"表第" + (i + 1) + "行数据写入完成。");
 		}
-		logger.info("所有数据写入" + sheet.getSheetName() + "表完成。");
+		logger.info("所有数据写入excel的 " + sheet.getSheetName() + "表完毕。");
 		if (autoClose) {
 			writeOut();
 		}
 		return this;
 	}
-
+	/**
+	 * 将数据写入到excel表行中
+	 * @param <T>
+	 * @param row
+	 * @param columnMap
+	 * @param data
+	 * @throws Exception
+	 */
+	private <T> void dataToRow(Row row, Map<Integer, String> columnMap, T data) throws Exception {
+		@SuppressWarnings("unchecked")
+		Class<T> clazz = (Class<T>) data.getClass();
+		// excel表格数据列与对象属性映射
+		// Map<Integer, String> columnMap = CellUtil.columnFieldMap(clazz);
+		// 将数据据写入单元格
+		for (Integer c : columnMap.keySet()) {
+			Cell cell = RowUtil.getCell(row, c);
+			String fieldName = columnMap.get(c);
+			String getterName = "get" + fieldName.substring(0, 1).toUpperCase() + fieldName.substring(1);
+			Method[] methods = clazz.getDeclaredMethods();
+			for (int i = 0, len = methods.length; i < len; i++) {
+				if (getterName.equals(methods[i].getName())) {
+					
+					if(converters!=null&&!converters.isEmpty()&&converters.containsKey(fieldName)) {
+						converters.get(fieldName).convert(cell, methods[i].invoke(data));
+					}else {
+						// 数据写入单元格
+						//CellUtil.setCellValue(cell, methods[i].invoke(data));
+						defaultConverter.convert(cell, methods[i].invoke(data));
+					}
+					
+				}
+			}
+		}
+	}
 	/**
 	 * 根据模板写入数据
 	 * 
@@ -371,19 +438,19 @@ public class ExcelWriter {
 			columnMap = SheetUtil.templateColumnFieldMap(sheet, t.getClass());
 			startRow = SheetUtil.headLastRowNum(sheet, t.getClass()) + 1;
 		}
-		this.doWrite(sheet, startRow, columnMap, dataList);
+		this.dataToSheet(sheet, startRow, columnMap, dataList);
 		return this;
 	}
 
 	/**
-	 * 写map数据
+	 * map数据写入到sheet表格中
 	 * 
 	 * @param sheetName
 	 * @param mapDatas
 	 * @return
 	 * @throws Exception
 	 */
-	public ExcelWriter doWriteMap(String sheetName, List<Map<String, Object>> mapDatas) throws Exception {
+	public ExcelWriter mapDataToSheet(String sheetName, List<Map<String, Object>> mapDatas) throws Exception {
 		try {
 
 			Sheet sheet = workbook.createSheet(sheetName);
@@ -406,7 +473,7 @@ public class ExcelWriter {
 				int rowCount = mapDatas.size();
 				for (int i = 0; i < rowCount; i++) {
 					Row row = SheetUtil.getRow(sheet, i + 1);
-					RowUtil.mapDataToRow(row, columnMap, data);
+					mapDataToRow(row, columnMap, data);
 				}
 			}
 		} catch (Exception e) {
@@ -419,7 +486,31 @@ public class ExcelWriter {
 		}
 		return this;
 	}
-
+	/**
+	 * map数据写入到excel表行中
+	 * @param row
+	 * @param columnMap
+	 * @param mapData
+	 * @throws Exception
+	 */
+	private void mapDataToRow(Row row, Map<Integer, String> columnMap, Map<String,Object> mapData) throws Exception{
+		for(String key : mapData.keySet()) {
+			int colIndex = -1;
+			if(columnMap.containsValue(key)) {
+				for(Map.Entry<Integer, String> entry:columnMap.entrySet()) {
+					if(key.equals(entry.getValue())) {
+						colIndex = entry.getKey();
+					}
+				}
+			}else {
+				colIndex = columnMap.size();
+				columnMap.put(colIndex, key);
+			}
+			
+			Cell cell = RowUtil.getCell(row, colIndex);
+			CellUtil.setCellValue(cell, mapData.get(key));
+		}
+	}
 	/**
 	 * workbook写入输出流
 	 * 
@@ -490,6 +581,7 @@ public class ExcelWriter {
 		Field[] fields = clazz.getDeclaredFields();
 		for (int i = 0, len = fields.length; i < len; i++) {
 			Field field = fields[i];
+			field.setAccessible(true);
 			// 判断字段是否标注Excel注解
 			if (field.isAnnotationPresent(Excel.class)) {
 				// 获取Excel注解

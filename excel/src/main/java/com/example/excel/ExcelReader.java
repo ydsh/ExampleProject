@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.logging.Logger;
 
 import org.apache.poi.ss.usermodel.Cell;
@@ -19,8 +20,8 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 
-import com.example.comm.ExcelUtils;
 import com.example.excel.util.CellUtil;
+import com.example.excel.util.ReadConverter;
 import com.example.excel.util.ExcelDataCheck;
 import com.example.excel.util.SheetUtil;
 import com.example.excel.util.WorkbookUtil;
@@ -34,16 +35,21 @@ public class ExcelReader {
 	// 需要读取的文件
 	private File file;
 	private InputStream inputStream;
+	//工作簿
 	private Workbook workbook;
-
+	//转换器
+	private Map<String, ReadConverter<?>> converters;
+	//默认转换器
+    private ReadConverter<Object> defaultConvert = (Cell cell)->CellUtil.getCellValue(cell);
 	/**
 	 * 不对外部提供创建实例
 	 * 
 	 * @param <T>
 	 */
 	private <T> ExcelReader() {
+		converters = new HashMap<String, ReadConverter<?>>();
 	}
-
+    
 	/**
 	 * 从给定的文件读取
 	 * 
@@ -84,7 +90,28 @@ public class ExcelReader {
 		excelReader.inputStream = inputStream;
 		return excelReader;
 	}
-
+	/**
+	 * 注册传转换器
+	 * @param converters
+	 * @return
+	 */
+	public ExcelReader registerConverter(Map<String, ReadConverter<?>> converters) {
+		for(Entry<String,  ReadConverter<?>> entry : converters.entrySet()) {
+			registerConverter(entry.getKey(),entry.getValue());
+		}
+		return this;
+	}
+	/**
+	 * 给指定的字段注册传转换器
+	 * @param fieldName
+	 * @param converter
+	 * @return
+	 */
+   public ExcelReader registerConverter(String fieldName,ReadConverter<?> converter){
+	   converters.put(fieldName, converter);
+	   return this;
+	   
+   }
 	/**
 	 * 根据文件或输入流创建工作簿，优先文件创建工作簿
 	 * 
@@ -117,17 +144,22 @@ public class ExcelReader {
 		}
 		Sheet sheet = workbook.getSheetAt(0);
 		int startRow = SheetUtil.headLastRowNum(sheet, clazz) + 1;
+		if(startRow<1) {
+			logger.warning("没有读取到正确的表头");
+		}
 		return doRead(sheet, startRow, clazz);
 	}
+
 	/**
 	 * 默认读取第一个sheet表,从指定行开始读，
+	 * 
 	 * @param <T>
 	 * @param startRow
-	 * @param clazz 读取数据的类
+	 * @param clazz    读取数据的类
 	 * @return
 	 * @throws Exception
 	 */
-	public <T> List<T> doRead(int startRow,Class<T> clazz) throws Exception {
+	public <T> List<T> doRead(int startRow, Class<T> clazz) throws Exception {
 		int sheetNum = workbook.getNumberOfSheets();
 		if (sheetNum == 0) {
 			throw new Exception("没有足够的sheet表可以读取");
@@ -135,6 +167,7 @@ public class ExcelReader {
 		Sheet sheet = workbook.getSheetAt(0);
 		return doRead(sheet, startRow, clazz);
 	}
+
 	/**
 	 * 指定sheet表名, 指定读取数据的类
 	 * 
@@ -276,7 +309,7 @@ public class ExcelReader {
 			int rowLastNum = sheet.getLastRowNum();
 
 			Map<Integer, String> columnFieldMap = SheetUtil.columnFieldMap(clazz);
-			for (int i = startRow; i <=rowLastNum; i++) {
+			for (int i = startRow; i <= rowLastNum; i++) {
 				Row row = sheet.getRow(i);
 				result.add(analysisRow(row, columnFieldMap, clazz));
 			}
@@ -313,7 +346,7 @@ public class ExcelReader {
 			Map<Integer, T> rowDatas = rowDataMap(sheet, startRow, clazz);
 			boolean mark = true;
 			for (Integer k : rowDatas.keySet()) {
-				mark &= dataCheck.check(k,rowDatas.get(k));
+				mark &= dataCheck.check(k, rowDatas.get(k));
 				result.add(rowDatas.get(k));
 			}
 			// 有校验不通过的数据，则清空结果
@@ -325,7 +358,7 @@ public class ExcelReader {
 			logger.info("发生未知异常");
 			e.printStackTrace();
 		} finally {
-			if(autoClose) {
+			if (autoClose) {
 				complete();
 			}
 		}
@@ -349,7 +382,7 @@ public class ExcelReader {
 		}
 		String sheetName = sheet.getSheetName();
 		int startRow = SheetUtil.headLastRowNum(sheet, clazz) + 1;
-        System.err.println(startRow);
+		System.err.println(startRow);
 		return doReadCheck(sheetName, startRow, clazz, dataCheck);
 	}
 
@@ -413,7 +446,7 @@ public class ExcelReader {
 			logger.info("读取" + sheet.getSheetName() + "表出现异常");
 			e.printStackTrace();
 
-		} 
+		}
 		return result;
 
 	}
@@ -489,27 +522,39 @@ public class ExcelReader {
 		for (Integer colIndex : columnFieldMap.keySet()) {
 			Cell cell = row.getCell(colIndex);
 			if (cell != null) {
-				Object value = CellUtil.getCellValue(cell);
 				String fieldName = columnFieldMap.get(colIndex);
 				// setter方法名必须是严格的setXxx格式
 				String setterMethodName = "set" + fieldName.substring(0, 1).toUpperCase() + fieldName.substring(1);
 				Field field = clazz.getDeclaredField(fieldName);
+				field.setAccessible(true);
 				// setter方法必须只带一个参数，并且参数类型与子段类型一致
 				Method method = clazz.getDeclaredMethod(setterMethodName, field.getType());
-				//TODO
-				// BigDecimal类型转其他数值类型
-				if ("BigDecimal".equals(value.getClass().getSimpleName())
-						&& !"BigDecimal".equals(field.getType().getSimpleName())) {
-					value = ExcelUtils.bigDecimalToNum(new BigDecimal(value.toString()),
-							field.getType().getSimpleName());
-				}
-				if(field.getType().isInstance(value)||(value instanceof Number&&CellUtil.isPrimitiveAndWrap(field.getType().getSimpleName(), value.getClass().getSimpleName()))) {
-					method.invoke(t, value);
-				}else {
-					String message =String.format("类型不匹配，字段%s期望的类型是%s,实际得到的是%s%n", 
-							CellUtil.columnName(fieldName, clazz),field.getType().getName(),value.getClass().getName());
-					throw new Exception(message);
-				}
+				method.setAccessible(true);
+                if(converters!=null&&!converters.isEmpty()&&converters.containsKey(fieldName)) {
+                	if(field.getType().isInstance(converters.get(fieldName).convert(cell))) {
+                		String message = String.format("类型不匹配，字段%s期望的类型是%s,实际得到的是%s%n",
+								CellUtil.columnName(fieldName, clazz), field.getType().getName(),
+								converters.get(fieldName).convert(cell).getClass().getName());
+						throw new Exception(message);
+                	}
+                	method.invoke(t, converters.get(fieldName).convert(cell));
+                }else {
+					Object value = defaultConvert.convert(cell);
+					// BigDecimal类型转其他数值类型
+					if (value!=null&&"BigDecimal".equals(value.getClass().getSimpleName())
+							&& !"BigDecimal".equals(field.getType().getSimpleName())) {
+						value = CellUtil.bigDecimalToNum(new BigDecimal(value.toString()), field.getType().getSimpleName());
+					}
+					if (value==null||field.getType().isInstance(value) || (value instanceof Number && CellUtil
+							.isSimilarNumType(field.getType().getSimpleName(), value.getClass().getSimpleName()))) {
+						method.invoke(t, value);
+					} else {
+						String message = String.format("类型不匹配，字段%s期望的类型是%s,实际得到的是%s%n",
+								CellUtil.columnName(fieldName, clazz), field.getType().getName(),
+								value.getClass().getName());
+						throw new Exception(message);
+					}
+                }
 
 			}
 		}

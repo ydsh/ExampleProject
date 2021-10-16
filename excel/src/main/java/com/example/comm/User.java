@@ -2,7 +2,10 @@ package com.example.comm;
 
 import java.util.Date;
 
+import com.example.excel.util.Excel;
+
 public class User {
+	
 	/**
 	 * ID
 	 */
@@ -64,7 +67,7 @@ public class User {
 	/**
 	 * 学历
 	 */
-	@Excel(order = 11, name = { "教育信息", "学历" })
+	//@Excel(order = 11, name = { "教育信息", "学历" })
 	private String degree;
 	/**
 	 * 毕业时间
