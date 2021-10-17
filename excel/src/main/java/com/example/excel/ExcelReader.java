@@ -22,6 +22,7 @@ import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 
 import com.example.excel.util.CellUtil;
 import com.example.excel.util.ReadConverter;
+import com.example.excel.util.RowUtil;
 import com.example.excel.util.ExcelDataCheck;
 import com.example.excel.util.SheetUtil;
 import com.example.excel.util.WorkbookUtil;
@@ -310,7 +311,7 @@ public class ExcelReader {
 
 			Map<Integer, String> columnFieldMap = SheetUtil.columnFieldMap(clazz);
 			for (int i = startRow; i <= rowLastNum; i++) {
-				Row row = sheet.getRow(i);
+				Row row = SheetUtil.getRow(sheet,i);
 				result.add(analysisRow(row, columnFieldMap, clazz));
 			}
 
@@ -438,7 +439,7 @@ public class ExcelReader {
 
 			Map<Integer, String> columnFieldMap = SheetUtil.columnFieldMap(clazz);
 			for (int i = startRow; i <= rowLastNum; i++) {
-				Row row = sheet.getRow(i);
+				Row row = SheetUtil.getRow(sheet,i);
 				result.put(i, analysisRow(row, columnFieldMap, clazz));
 			}
 
@@ -478,20 +479,21 @@ public class ExcelReader {
 			int rowLastNum = sheet.getLastRowNum();
 			Map<Integer, String> columnNameMap = new HashMap<Integer, String>();
 			int headRowIndex = startRow - 1;
-			Row headRow = sheet.getRow(headRowIndex < 0 ? 0 : headRowIndex);
+			Row headRow = SheetUtil.getRow(sheet,headRowIndex < 0 ? 0 : headRowIndex);
 			int colLastNum = headRow.getLastCellNum();
 			for (int i = 0; i < colLastNum; i++) {
 				if (startRow == 0) {
 					columnNameMap.put(i, String.valueOf(i));
 				} else {
-					Cell cell = headRow.getCell(i);
+					Cell cell = RowUtil.getCell(headRow,i);
+					cell.getColumnIndex();
 					if (cell != null && cell.getStringCellValue() != null && !"".equals(cell.getStringCellValue())) {
 						columnNameMap.put(i, cell.getStringCellValue());
 					}
 				}
 			}
 			for (int i = startRow; i <= rowLastNum; i++) {
-				Row row = sheet.getRow(i);
+				Row row = SheetUtil.getRow(sheet,i);
 				result.add(analysisRow(row, columnNameMap));
 			}
 
@@ -520,7 +522,7 @@ public class ExcelReader {
 		T t = clazz.getDeclaredConstructor().newInstance();
 		// 遍历给定的列和字段的映射，不用对一行的每一列进行遍历
 		for (Integer colIndex : columnFieldMap.keySet()) {
-			Cell cell = row.getCell(colIndex);
+			Cell cell = RowUtil.getCell(row,colIndex);
 			if (cell != null) {
 				String fieldName = columnFieldMap.get(colIndex);
 				// setter方法名必须是严格的setXxx格式
@@ -572,7 +574,7 @@ public class ExcelReader {
 	private Map<String, Object> analysisRow(Row row, Map<Integer, String> columnFieldMap) {
 		Map<String, Object> result = new HashMap<String, Object>();
 		for (Integer colIndex : columnFieldMap.keySet()) {
-			Cell cell = row.getCell(colIndex);
+			Cell cell = RowUtil.getCell(row,colIndex);
 			if (cell != null) {
 				Object value = CellUtil.getCellValue(cell);
 				result.put(columnFieldMap.get(colIndex), value);
