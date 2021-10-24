@@ -66,5 +66,4 @@ public class Result<T> {
         return "{\"success\":" + success + ", \"data\":" + data + ", \"message\":" + message + ", \"code\":" + code
                 + "}";
     }
-
 }

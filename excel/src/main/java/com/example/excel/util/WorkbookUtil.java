@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.InputStream;
 import java.util.logging.Logger;
 
+import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
@@ -74,5 +75,46 @@ public class WorkbookUtil {
 		// return WorkbookFactory.create(poifsFileSystem);
 
 		return WorkbookFactory.create(inputStream);
+	}
+
+	/**
+	 * 创建默认sheet表格
+	 * 
+	 * @param workbook
+	 * @return
+	 */
+	public static Sheet getSheet(Workbook workbook) {
+		return getSheet(workbook, null);
+	}
+
+	/**
+	 * 使用自定义名字创建sheet表格
+	 * 
+	 * @param workbook
+	 * @param sheetName
+	 * @return
+	 */
+	public static Sheet getSheet(Workbook workbook, String sheetName) {
+		Sheet sheet = null;
+		if (sheetName == null||"".equals(sheetName)) {
+		   if(workbook.getNumberOfSheets() == 0) {
+			   sheetName = "Sheet" + (workbook.getNumberOfSheets() + 1);
+			   sheet = workbook.createSheet(sheetName);
+			   logger.info("创建默认" + sheetName + "表格");
+		   }else {
+			   sheet = workbook.getSheetAt(0);
+			   logger.info("获取默认" + sheet.getSheetName() + "表格");
+		   }
+		}else {
+			if(workbook.getSheet(sheetName) == null) {
+				sheet = workbook.createSheet(sheetName);
+				logger.info("创建" + sheetName + "表格");
+			}else {
+				sheet = workbook.getSheet(sheetName);
+				logger.info("获取" + sheetName + "表格");
+			}
+		}
+
+		return sheet;
 	}
 }

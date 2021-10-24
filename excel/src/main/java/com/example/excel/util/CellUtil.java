@@ -160,7 +160,7 @@ public class CellUtil {
 	 * @param clazz
 	 * @return
 	 */
-    public static <T> int columnIndex(String fieldName,Class<T> clazz) {
+    public static <T> int columnIndex(String fieldName,Class<T> clazz) throws Exception{
     	int result = -1;
     	try {
 			Field field = clazz.getDeclaredField(fieldName);
@@ -172,6 +172,7 @@ public class CellUtil {
 		} catch (NoSuchFieldException | SecurityException e) {
 			logger.warning("无法获取该字段所在单元格列序号");
 			e.printStackTrace();
+			throw new Exception("无法获取该字段所在单元格列序号");
 		}
     	return result;
     }
@@ -182,7 +183,7 @@ public class CellUtil {
      * @param clazz
      * @return
      */
-    public static <T> String columnName(String fieldName,Class<T> clazz) {
+    public static <T> String columnName(String fieldName,Class<T> clazz) throws Exception {
     	String result = "";
     	try {
     		Field field = clazz.getDeclaredField(fieldName);
@@ -198,6 +199,7 @@ public class CellUtil {
 		} catch (Exception e) {
 			logger.warning("无法获取该字段所在列的名字");
 			e.printStackTrace();
+			throw new Exception("无法获取该字段所在列的名字");
 		}
     	return result;
     }

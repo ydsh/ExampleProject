@@ -36,100 +36,145 @@ public class ExcelWriter {
 	private boolean autoClose = true;
 	// 输出流
 	private OutputStream outputStream;
-	//写入的文件
-	private File file;
-	//中间文件
+	// 中间文件
 	private File cacheFile;
-	//工作簿
+	// 工作簿
 	private Workbook workbook;
-	//是否是模板
+	// 是否是模板
 	private boolean isTemplate = false;
-    //全局样式
+	// 全局样式
 	private Map<String, CellStyle> fmtMap;
-	//转换器集合
-    private Map<String,WriteConverter> converters;
-    //默认转换器
-    private WriteConverter defaultConverter = (Cell cell,Object obj)-> CellUtil.setCellValue(cell, obj);
+	// 转换器集合
+	private Map<String, WriteConverter<Cell, Object>> converters;
+	// 默认转换器
+	private WriteConverter<Cell, Object> defaultConverter = (Cell cell, Object obj) -> new Object();
+	// 列索引和字段映射
+	private Map<Integer, String> columnFieldMap;
+
 	/**
 	 * 不提供外部创建实例
 	 */
 	private ExcelWriter() {
-		converters = new HashMap<String, WriteConverter>();
+		converters = new HashMap<String, WriteConverter<Cell, Object>>();
 	}
-    /**
-     * 获取工作簿实例
-     * @return
-     */
+
+	/**
+	 * 获取工作簿实例
+	 * 
+	 * @return
+	 */
 	public Workbook getWorkbook() {
 		return workbook;
 	}
+
 	/**
 	 * 注册传转换器
+	 * 
 	 * @param converters
 	 * @return
 	 */
-	public ExcelWriter registerConverter(Map<String, WriteConverter> converters) {
-		for(Entry<String,  WriteConverter> entry : converters.entrySet()) {
-			registerConverter(entry.getKey(),entry.getValue());
+	public ExcelWriter registerConverter(Map<String, WriteConverter<Cell, Object>> converters) {
+		for (Entry<String, WriteConverter<Cell, Object>> entry : converters.entrySet()) {
+			registerConverter(entry.getKey(), entry.getValue());
 		}
 		return this;
 	}
+
 	/**
 	 * 给指定的字段注册传转换器
+	 * 
 	 * @param fieldName
 	 * @param converter
 	 * @return
 	 */
-   public ExcelWriter registerConverter(String fieldName,WriteConverter converter){
-	   converters.put(fieldName, converter);
-	   return this;
-	   
-   }
-	/**
-	 * 写入给定的文件
-	 * 
-	 * @param fileName
-	 * @return
-	 */
-	public static ExcelWriter writeExcel(String fileName) {
-		File file = new File(fileName);
-		return writeExcel(file);
+	public ExcelWriter registerConverter(String fieldName, WriteConverter<Cell, Object> converter) {
+		converters.put(fieldName, converter);
+		return this;
+
 	}
 
 	/**
-	 * 写入给定的文件对象
+	 * 指定列索引和字段映射，将字段列表转换成Map，列索引和字段映射
 	 * 
-	 * @param file
+	 * @param fieldNames
 	 * @return
 	 */
-	public static ExcelWriter writeExcel(File file) {
+	public ExcelWriter withColumnField(List<String> fieldNames) {
+		if (columnFieldMap == null) {
+			columnFieldMap = new HashMap<Integer, String>();
+		}
+		columnFieldMap.clear();
+		for (int i = 0, len = fieldNames.size(); i < len; i++) {
+			columnFieldMap.put(i, fieldNames.get(i));
+		}
+		return this;
+	}
+
+	/**
+	 * 指定列索引和字段映射
+	 * 
+	 * @param columnFieldMap
+	 * @return
+	 */
+	public ExcelWriter withColumnField(Map<Integer, String> columnFieldMap) {
+		this.columnFieldMap = columnFieldMap;
+		return this;
+	}
+
+	/**
+	 * 创建默认工作簿
+	 * 
+	 * @return
+	 * @throws Exception
+	 */
+	public static ExcelWriter build() throws Exception {
 		ExcelWriter excelWriter = new ExcelWriter();
+		excelWriter.isTemplate = false;
 		try {
-			excelWriter.outputStream = new FileOutputStream(file);
-			excelWriter.file = file;
-		} catch (FileNotFoundException e) {
-			logger.warning("创建输出流异常");
+			excelWriter.workbook = WorkbookUtil.createWorkbook(true);
+		} catch (Exception e) {
+			logger.info("创建默认workbook模板发生异常。");
+			throw new Exception("创建默认workbook模板发生异常。");
+		}
+
+		return excelWriter;
+	}
+
+	/**
+	 * 使用指定模板创建工作簿
+	 * 
+	 * @param templateName
+	 * @return
+	 * @throws Exception
+	 */
+	public static ExcelWriter build(String templatePath) throws Exception {
+		ExcelWriter excelWriter = new ExcelWriter();
+		if (templatePath == null || "".equals(templatePath)) {
+			throw new Exception(templatePath + "模板不存在");
+		}
+		if (!templatePath.toLowerCase().endsWith(WorkbookUtil.XLS.toLowerCase())
+				&& !templatePath.toLowerCase().endsWith(WorkbookUtil.XLSX.toLowerCase())) {
+			throw new Exception("不支持其他格式文件，只支持excel格式文件");
+		}
+		File sourceFile = new File(templatePath);
+		if (!sourceFile.isFile()) {
+			throw new Exception(templatePath + "不是模板文件");
+		}
+		try {
+			String tempFilePath = sourceFile.getParent() + File.separator + System.currentTimeMillis()
+					+ sourceFile.getName();
+			excelWriter.cacheFile = new File(tempFilePath);
+			FileUtil.copyFile(excelWriter.cacheFile, sourceFile);
+			excelWriter.workbook = WorkbookUtil.createWorkbook(excelWriter.cacheFile);
+			excelWriter.isTemplate = true;
+		} catch (Exception e) {
+			logger.info("创建workbook模板发生异常。");
 			e.printStackTrace();
+			throw new Exception("创建workbook模板发生异常。");
 		}
 		return excelWriter;
 	}
 
-	/**
-	 * 写入给定的的输出流
-	 * 
-	 * @return
-	 */
-	public static ExcelWriter writeExcel(OutputStream outputStream) {
-		ExcelWriter excelWriter = new ExcelWriter();
-		excelWriter.outputStream = outputStream;
-		return excelWriter;
-	}
-	/**
-	 * @return
-	 */
-	public static ExcelWriter writeExcel() {
-		return new ExcelWriter();
-	}
 	/**
 	 * 是否自动关闭资源
 	 * 
@@ -142,64 +187,6 @@ public class ExcelWriter {
 	}
 
 	/**
-	 * 创建默认工作簿
-	 * 
-	 * @return
-	 * @throws Exception
-	 */
-	public ExcelWriter build() throws Exception {
-		this.isTemplate = false;
-		try {
-			if (workbook == null) {
-				this.workbook = WorkbookUtil.createWorkbook(true);
-			}
-		} catch (Exception e) {
-			logger.info("创建默认workbook模板发生异常。");
-			throw new Exception("创建默认workbook模板发生异常。");
-		}
-
-		return this;
-	}
-
-	/**
-	 * 使用指定模板创建工作簿
-	 * 
-	 * @param templateName
-	 * @return
-	 * @throws Exception
-	 */
-	public ExcelWriter build(String templatePath) throws Exception {
-
-		if (templatePath == null || "".equals(templatePath)) {
-			throw new Exception(templatePath + "模板不存在");
-		}
-		File sourceFile = new File(templatePath);
-		if (!sourceFile.isFile()) {
-			throw new Exception(templatePath + "不是模板文件");
-		}
-		try {
-			String tempFilePath = sourceFile.getParent() + File.separator + System.currentTimeMillis() + sourceFile.getName();
-			cacheFile = new File(tempFilePath);
-			if(!((file.getName().toLowerCase().endsWith(WorkbookUtil.XLS.toLowerCase()) && 
-					templatePath.toLowerCase().endsWith(WorkbookUtil.XLS.toLowerCase()))||
-					(file.getName().toLowerCase().endsWith(WorkbookUtil.XLSX.toLowerCase()) && 
-							templatePath.toLowerCase().endsWith(WorkbookUtil.XLSX.toLowerCase())))){
-				throw new Exception("写入文件和模板文件格式不匹配。");
-			}
-			FileUtil.copyFile(cacheFile, sourceFile);
-			this.workbook = WorkbookUtil.createWorkbook(cacheFile);
-			this.isTemplate = true;
-		} catch (Exception e) {
-			logger.info("创建workbook模板发生异常。");
-			e.printStackTrace();
-			throw new Exception("创建workbook模板发生异常。");
-		} finally {
-			//targetFile.delete();
-		}
-		return this;
-	}
-
-	/**
 	 * 将数据写入工作簿,默认写入第一个sheet表中
 	 * 
 	 * @param <T>
@@ -208,24 +195,20 @@ public class ExcelWriter {
 	 * @throws Exception
 	 */
 	public <T> ExcelWriter doWrite(List<T> dataList) throws Exception {
-		Sheet sheet = null;
-		Map<Integer, String> columnMap = null;
-		int startRow = -1;
-
+		if (dataList == null || dataList.isEmpty()) {
+			throw new Exception("没有数据可以写。");
+		}
+		if (columnFieldMap != null && !columnFieldMap.isEmpty()) {
+			throw new Exception("指定列索引和字段映射时，必须给定开始写数据的行索引。");
+		}
 		// 默认使用第一个sheet表格
-		if (workbook.getNumberOfSheets() > 0) {
-			sheet = workbook.getSheetAt(0);
-		} else {
-			sheet = SheetUtil.createSheet(workbook);
-		}
-		if (dataList != null && !dataList.isEmpty()) {
-			T t = dataList.get(0);
-			// 写入注解定义表头行数据
-			SheetUtil.headRowWrite(sheet, t.getClass());
-			columnMap = SheetUtil.columnFieldMap(t.getClass());
-			startRow = SheetUtil.headRowCount(t.getClass());
-		}
-		
+		Sheet sheet = WorkbookUtil.getSheet(workbook);
+		T t = dataList.get(0);
+		// 写入注解定义表头行数据
+		SheetUtil.headRowWrite(sheet, t.getClass());
+		Map<Integer, String> columnMap = SheetUtil.columnFieldMap(t.getClass());
+		int startRow = SheetUtil.headRowCount(t.getClass());
+
 		this.dataToSheet(sheet, startRow, columnMap, dataList);
 		return this;
 	}
@@ -240,15 +223,15 @@ public class ExcelWriter {
 	 * @throws Exception
 	 */
 	public <T> ExcelWriter doWrite(int startRow, List<T> dataList) throws Exception {
-		Sheet sheet = null;
-		Map<Integer, String> columnMap = null;
-		// 默认使用第一个sheet表格
-		if (workbook.getNumberOfSheets() > 0) {
-			sheet = workbook.getSheetAt(0);
-		} else {
-			sheet = SheetUtil.createSheet(workbook);
+		if (dataList == null || dataList.isEmpty()) {
+			throw new Exception("没有数据可以写。");
 		}
-		if (dataList != null && !dataList.isEmpty()) {
+
+		Map<Integer, String> columnMap = columnFieldMap;
+
+		// 默认使用第一个sheet表格
+		Sheet sheet = WorkbookUtil.getSheet(workbook);
+		if (columnFieldMap == null || columnFieldMap.isEmpty()) {
 			T t = dataList.get(0);
 			// 写入注解定义表头行数据
 			SheetUtil.headRowWrite(sheet, t.getClass());
@@ -269,25 +252,22 @@ public class ExcelWriter {
 	 * @throws Exception
 	 */
 	public <T> ExcelWriter doWrite(String sheetName, List<T> dataList) throws Exception {
-		if (sheetName == null || "".equals(sheetName)) {
+		if (sheetName == null || "".equals(sheetName) || workbook.getSheet(sheetName) != null) {
 			logger.warning("sheet表不存在！");
 			throw new Exception("sheet表不存在！");
 		}
-		Sheet sheet = null;
-		if (workbook.getSheet(sheetName) != null) {
-			sheet = workbook.getSheet(sheetName);
-		} else {
-			sheet = SheetUtil.createSheet(workbook, sheetName);
+		if (dataList == null || dataList.isEmpty()) {
+			throw new Exception("没有数据可以写。");
 		}
-		Map<Integer, String> columnMap = null;
-		int startRow = -1;
-		if (dataList != null && !dataList.isEmpty()) {
-			T t = dataList.get(0);
-			// 写入注解定义表头行数据
-			SheetUtil.headRowWrite(sheet, t.getClass());
-			columnMap = SheetUtil.columnFieldMap(t.getClass());
-			startRow = SheetUtil.headRowCount(t.getClass());
+		if (columnFieldMap != null && !columnFieldMap.isEmpty()) {
+			throw new Exception("指定列索引和字段映射时，必须给定开始写数据的行索引。");
 		}
+		Sheet sheet = WorkbookUtil.getSheet(workbook, sheetName);
+		T t = dataList.get(0);
+		// 写入注解定义表头行数据
+		SheetUtil.headRowWrite(sheet, t.getClass());
+		Map<Integer, String> columnMap = SheetUtil.columnFieldMap(t.getClass());
+		int startRow = SheetUtil.headRowCount(t.getClass());
 		this.dataToSheet(sheet, startRow, columnMap, dataList);
 		return this;
 	}
@@ -302,18 +282,16 @@ public class ExcelWriter {
 	 * @throws Exception
 	 */
 	public <T> ExcelWriter doWrite(String sheetName, int startRow, List<T> dataList) throws Exception {
-		if (sheetName == null || "".equals(sheetName)) {
+		if (sheetName == null || "".equals(sheetName) || workbook.getSheet(sheetName) != null) {
 			logger.warning("sheet表不存在！");
 			throw new Exception("sheet表不存在！");
 		}
-		Sheet sheet = null;
-		if (workbook.getSheet(sheetName) != null) {
-			sheet = workbook.getSheet(sheetName);
-		} else {
-			sheet = SheetUtil.createSheet(workbook, sheetName);
+		if (dataList == null || dataList.isEmpty()) {
+			throw new Exception("没有数据可以写。");
 		}
-		Map<Integer, String> columnMap = null;
-		if (dataList != null && !dataList.isEmpty()) {
+		Sheet sheet = WorkbookUtil.getSheet(workbook, sheetName);
+		Map<Integer, String> columnMap = columnFieldMap;
+		if (columnFieldMap == null || columnFieldMap.isEmpty()) {
 			T t = dataList.get(0);
 			// 写入注解定义表头行数据
 			SheetUtil.headRowWrite(sheet, t.getClass());
@@ -325,6 +303,7 @@ public class ExcelWriter {
 
 	/**
 	 * 向excel的sheet表写数据
+	 * 
 	 * @param <T>
 	 * @param sheet
 	 * @param startRow
@@ -363,21 +342,24 @@ public class ExcelWriter {
 		withFmtMap(workbook, clazz);
 		logger.info("开始向" + sheet.getSheetName() + "表写入数据。");
 		for (int i = 0, len = dataList.size(); i < len; i++) {
-			 Row row = SheetUtil.getRow(sheet, i + startRow);
-			 // 设置行单元格注解定义的格式
-			 RowUtil.setRowCellFormat(row, fmtMap, columnMap, clazz);
-			 // 数据写入到excel表行中
-			 dataToRow(row, columnMap, dataList.get(i));
-			logger.info("excel的"+sheet.getSheetName()+"表第" + (i + 1) + "行数据写入完成。");
+			Row row = SheetUtil.getRow(sheet, i + startRow);
+			// 设置行单元格注解定义的格式
+			RowUtil.setRowCellFormat(row, fmtMap, columnMap, clazz);
+			// 数据写入到excel表行中
+			dataToRow(row, columnMap, dataList.get(i));
+			logger.info("excel的" + sheet.getSheetName() + "表第" + (startRow + i + 1) + "行数据写入完成。");
 		}
 		logger.info("所有数据写入excel的 " + sheet.getSheetName() + "表完毕。");
-		if (autoClose) {
-			writeOut();
+		// 每次写完sheet表就清空列索引和字段的映射，所以每次写sheet表之前给定列索引和字段的映射
+		if (columnFieldMap != null) {
+			columnFieldMap.clear();
 		}
 		return this;
 	}
+
 	/**
 	 * 将数据写入到excel表行中
+	 * 
 	 * @param <T>
 	 * @param row
 	 * @param columnMap
@@ -385,7 +367,6 @@ public class ExcelWriter {
 	 * @throws Exception
 	 */
 	private <T> void dataToRow(Row row, Map<Integer, String> columnMap, T data) throws Exception {
-		@SuppressWarnings("unchecked")
 		Class<T> clazz = (Class<T>) data.getClass();
 		// excel表格数据列与对象属性映射
 		// Map<Integer, String> columnMap = CellUtil.columnFieldMap(clazz);
@@ -397,19 +378,19 @@ public class ExcelWriter {
 			Method[] methods = clazz.getDeclaredMethods();
 			for (int i = 0, len = methods.length; i < len; i++) {
 				if (getterName.equals(methods[i].getName())) {
-					
-					if(converters!=null&&!converters.isEmpty()&&converters.containsKey(fieldName)) {
-						converters.get(fieldName).convert(cell, methods[i].invoke(data));
-					}else {
+					if (converters != null && !converters.isEmpty() && converters.containsKey(fieldName)) {
+						converters.get(fieldName).convert(cell, data);
+					} else {
 						// 数据写入单元格
-						//CellUtil.setCellValue(cell, methods[i].invoke(data));
-						defaultConverter.convert(cell, methods[i].invoke(data));
+						// CellUtil.setCellValue(cell, methods[i].invoke(data));
+						defaultConverter.defaultConvert(cell, methods[i].invoke(data));
 					}
-					
+
 				}
 			}
 		}
 	}
+
 	/**
 	 * 根据模板写入数据
 	 * 
@@ -421,16 +402,14 @@ public class ExcelWriter {
 	 */
 	public <T> ExcelWriter doWriteTemplate(String sheetName, List<T> dataList) throws Exception {
 		if (!isTemplate) {
-			logger.info("没有模板");
-			throw new Exception("没有模板");
+			throw new Exception("没有输入模板");
 		}
-		Sheet sheet = null;
+
 		// sheet模板名称不存在，默认获取第一个sheet表
-		if (sheetName == null || "".equals(sheetName)) {
-			sheet = workbook.getSheetAt(0);
-		} else {
-			sheet = workbook.getSheet(sheetName);
+		if (sheetName == null || "".equals(sheetName) || workbook.getSheet(sheetName) == null) {
+			throw new Exception("没有模板" + sheetName + "表不存在");
 		}
+		Sheet sheet = WorkbookUtil.getSheet(workbook, sheetName);
 		Map<Integer, String> columnMap = null;
 		int startRow = -1;
 		if (dataList != null && !dataList.isEmpty()) {
@@ -479,48 +458,63 @@ public class ExcelWriter {
 		} catch (Exception e) {
 			logger.info("写map数据出错");
 			e.printStackTrace();
-		} finally {
-			if (autoClose) {
-				writeOut();
-			}
+			throw new Exception("写map数据出错");
 		}
 		return this;
 	}
+
 	/**
 	 * map数据写入到excel表行中
+	 * 
 	 * @param row
 	 * @param columnMap
 	 * @param mapData
 	 * @throws Exception
 	 */
-	private void mapDataToRow(Row row, Map<Integer, String> columnMap, Map<String,Object> mapData) throws Exception{
-		for(String key : mapData.keySet()) {
+	private void mapDataToRow(Row row, Map<Integer, String> columnMap, Map<String, Object> mapData) throws Exception {
+		for (String key : mapData.keySet()) {
 			int colIndex = -1;
-			if(columnMap.containsValue(key)) {
-				for(Map.Entry<Integer, String> entry:columnMap.entrySet()) {
-					if(key.equals(entry.getValue())) {
+			if (columnMap.containsValue(key)) {
+				for (Map.Entry<Integer, String> entry : columnMap.entrySet()) {
+					if (key.equals(entry.getValue())) {
 						colIndex = entry.getKey();
 					}
 				}
-			}else {
+			} else {
 				colIndex = columnMap.size();
 				columnMap.put(colIndex, key);
 			}
-			
+
 			Cell cell = RowUtil.getCell(row, colIndex);
-			CellUtil.setCellValue(cell, mapData.get(key));
+			if (converters != null && !converters.isEmpty() && converters.containsKey(key)) {
+				converters.get(key).convert(cell, mapData);
+			} else {
+				// CellUtil.setCellValue(cell, mapData.get(key));
+				defaultConverter.defaultConvert(cell, mapData.get(key));
+			}
+
 		}
 	}
+
 	/**
 	 * workbook写入输出流
 	 * 
 	 * @param workbook
 	 */
-	public ExcelWriter writeOut() {
-	   return writeOut(outputStream);
+	public void writeOut(String pathName) {
+		File file = new File(pathName);
+		try {
+			outputStream = new FileOutputStream(file);
+			writeOut(outputStream);
+		} catch (FileNotFoundException e) {
+			logger.warning(e.getMessage());
+			e.printStackTrace();
+		}
 	}
+
 	/**
 	 * workbook写入指定输出流
+	 * 
 	 * @param workbook
 	 */
 	public ExcelWriter writeOut(OutputStream outputStream) {
@@ -528,15 +522,16 @@ public class ExcelWriter {
 			workbook.write(outputStream);
 			outputStream.flush();
 		} catch (Exception e) {
-			logger.warning("写excel文件发生异常");
+			logger.warning("写excel文件发生异常，" + e.getMessage());
 			e.printStackTrace();
 		} finally {
 			if (autoClose) {
-				this.complete();
+				complete();
 			}
 		}
 		return this;
 	}
+
 	/**
 	 * 释放资源
 	 * 
@@ -554,13 +549,14 @@ public class ExcelWriter {
 			if (outputStream != null) {
 				outputStream.close();
 			}
+
 			logger.info("资源释放完成");
-		} catch (Exception ex) {
+		} catch (Exception e) {
 			logger.warning("关闭IO资源发生异常");
-			ex.printStackTrace();
+			e.printStackTrace();
 			return false;
-		}finally {
-			if(cacheFile!=null) {
+		} finally {
+			if (cacheFile != null) {
 				cacheFile.delete();
 			}
 		}
@@ -574,7 +570,7 @@ public class ExcelWriter {
 	 * @param workbook
 	 * @param clazz
 	 */
-	public <T> void withFmtMap(Workbook workbook, Class<T> clazz) {
+	private <T> void withFmtMap(Workbook workbook, Class<T> clazz) {
 		if (fmtMap == null) {
 			fmtMap = new HashMap<String, CellStyle>();
 		}

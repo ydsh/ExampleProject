@@ -29,35 +29,6 @@ public class SheetUtil {
 	 */
 	private SheetUtil() {
 	}
-
-	/**
-	 * 创建默认sheet表格
-	 * 
-	 * @param workbook
-	 * @return
-	 */
-	public static Sheet createSheet(Workbook workbook) {
-		return createSheet(workbook, null);
-	}
-
-	/**
-	 * 使用自定义名字创建sheet表格
-	 * 
-	 * @param workbook
-	 * @param sheetName
-	 * @return
-	 */
-	public static Sheet createSheet(Workbook workbook, String sheetName) {
-		Sheet sheet = null;
-		if (sheetName == null) {
-			sheetName = "Sheet" + (workbook.getNumberOfSheets() + 1);
-		}
-		logger.info("创建" + sheetName + "表格");
-		sheet = workbook.createSheet(sheetName);
-
-		return sheet;
-	}
-
 	/**
 	 * 写表头行
 	 * 
