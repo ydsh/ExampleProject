@@ -38,6 +38,7 @@ public class ExcelReader {
 	private InputStream inputStream;
 	// 工作簿
 	private Workbook workbook;
+	//转换器
 	private Converters converters;
 	// 默认转换器
 	private ReadConverter<Cell, Object> defaultConverter = (Cell cell, Object obj) -> {

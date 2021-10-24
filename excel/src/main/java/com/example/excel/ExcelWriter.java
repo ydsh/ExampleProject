@@ -21,6 +21,7 @@ import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 
 import com.example.excel.util.CellUtil;
+import com.example.excel.util.Converters;
 import com.example.excel.util.Excel;
 import com.example.excel.util.FileUtil;
 import com.example.excel.util.RowUtil;
@@ -45,7 +46,7 @@ public class ExcelWriter {
 	// 全局样式
 	private Map<String, CellStyle> fmtMap;
 	// 转换器集合
-	private Map<String, WriteConverter<Cell, Object>> converters;
+	private Converters converters;
 	// 默认转换器
 	private WriteConverter<Cell, Object> defaultConverter = (Cell cell, Object obj) -> new Object();
 	// 列索引和字段映射
@@ -55,7 +56,7 @@ public class ExcelWriter {
 	 * 不提供外部创建实例
 	 */
 	private ExcelWriter() {
-		converters = new HashMap<String, WriteConverter<Cell, Object>>();
+		converters = new Converters();
 	}
 
 	/**
@@ -68,29 +69,34 @@ public class ExcelWriter {
 	}
 
 	/**
-	 * 注册传转换器
+	 * 注册读数据类的字段转换器
 	 * 
-	 * @param converters
+	 * @param <T>
+	 * @param clazz
+	 * @param fieldName
+	 * @param writeConverter
 	 * @return
 	 */
-	public ExcelWriter registerConverter(Map<String, WriteConverter<Cell, Object>> converters) {
-		for (Entry<String, WriteConverter<Cell, Object>> entry : converters.entrySet()) {
-			registerConverter(entry.getKey(), entry.getValue());
-		}
+	public <T> ExcelWriter registerConverter(String fieldName, WriteConverter<Cell, T> writeConverter) {
+		converters.registerWriteConverter(fieldName, writeConverter);
 		return this;
 	}
 
 	/**
-	 * 给指定的字段注册传转换器
+	 * 注册读数据类的字段转换器
 	 * 
-	 * @param fieldName
-	 * @param converter
+	 * @param <T>
+	 * @param clazz
+	 * @param writeConverter
 	 * @return
 	 */
-	public ExcelWriter registerConverter(String fieldName, WriteConverter<Cell, Object> converter) {
-		converters.put(fieldName, converter);
+	public <T> ExcelWriter registerConverters(Map<String, WriteConverter<Cell, T>> writeConverter) {
+		if (writeConverter != null && !writeConverter.isEmpty()) {
+			for (Entry<String, WriteConverter<Cell, T>> entry : writeConverter.entrySet()) {
+				converters.registerWriteConverter(entry.getKey(), entry.getValue());
+			}
+		}
 		return this;
-
 	}
 
 	/**
@@ -374,20 +380,22 @@ public class ExcelWriter {
 		for (Integer c : columnMap.keySet()) {
 			Cell cell = RowUtil.getCell(row, c);
 			String fieldName = columnMap.get(c);
+			//getter方法名
 			String getterName = "get" + fieldName.substring(0, 1).toUpperCase() + fieldName.substring(1);
-			Method[] methods = clazz.getDeclaredMethods();
-			for (int i = 0, len = methods.length; i < len; i++) {
-				if (getterName.equals(methods[i].getName())) {
-					if (converters != null && !converters.isEmpty() && converters.containsKey(fieldName)) {
-						converters.get(fieldName).convert(cell, data);
-					} else {
-						// 数据写入单元格
-						// CellUtil.setCellValue(cell, methods[i].invoke(data));
-						defaultConverter.defaultConvert(cell, methods[i].invoke(data));
-					}
-
-				}
+			//必须是一个无参的getter方法
+			Method method = clazz.getDeclaredMethod(getterName);
+			method.setAccessible(true);
+			Map<String, WriteConverter<Cell, ?>> cv = converters.getWriteConveters();
+			if (cv != null && !cv.isEmpty() && cv.containsKey(fieldName)) {
+				((WriteConverter<Cell, T>)cv.get(fieldName)).convert(cell, data);
+			} else {
+				// 数据写入单元格
+				// CellUtil.setCellValue(cell, methods[i].invoke(data));
+				defaultConverter.defaultConvert(cell, method.invoke(data));
 			}
+
+				
+			
 		}
 	}
 
@@ -486,8 +494,9 @@ public class ExcelWriter {
 			}
 
 			Cell cell = RowUtil.getCell(row, colIndex);
-			if (converters != null && !converters.isEmpty() && converters.containsKey(key)) {
-				converters.get(key).convert(cell, mapData);
+			Map<String, WriteConverter<Cell, ?>> cv = converters.getWriteConveters();
+			if (cv != null && !cv.isEmpty() && cv.containsKey(key)) {
+				((WriteConverter<Cell, Map<String, Object>>)cv.get(key)).convert(cell, mapData);
 			} else {
 				// CellUtil.setCellValue(cell, mapData.get(key));
 				defaultConverter.defaultConvert(cell, mapData.get(key));
@@ -574,6 +583,7 @@ public class ExcelWriter {
 		if (fmtMap == null) {
 			fmtMap = new HashMap<String, CellStyle>();
 		}
+		fmtMap.clear();
 		Field[] fields = clazz.getDeclaredFields();
 		for (int i = 0, len = fields.length; i < len; i++) {
 			Field field = fields[i];

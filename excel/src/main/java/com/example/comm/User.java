@@ -20,7 +20,7 @@ public class User {
 	/**
 	 * 年龄
 	 */
-	@Excel(order = 2, name = { "基本信息", "年龄" }, fmt = "0")
+	@Excel(order = 2, name = { "基本信息", "年龄" })
 	private int age;
 
 	/**

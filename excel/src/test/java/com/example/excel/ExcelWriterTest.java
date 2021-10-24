@@ -6,6 +6,9 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.Workbook;
 import org.junit.jupiter.api.Test;
 
 import com.example.comm.User;
@@ -32,9 +35,16 @@ class ExcelWriterTest {
 		try {
 			List<String> fields = new ArrayList<String>();
 			fields.add("id");
-			fields.add("name");
+			fields.add("name");//writeTemplate
 			fields.add("age");
-			ExcelWriter.build().withColumnField(fields).doWrite(list).writeOut("C:\\Users\\Disen\\OneDrive\\桌面\\write_data.xlsx");
+			ExcelWriter.build("C:\\Users\\Disen\\OneDrive\\桌面\\writeTemplate.xlsx").registerConverter("age", (Cell cell, User user)->{
+				Workbook workbook = cell.getRow().getSheet().getWorkbook();
+				CellStyle cellStyle = workbook.createCellStyle();
+				cellStyle.setDataFormat(workbook.createDataFormat().getFormat("#,#00.00000"));
+				cell.setCellStyle(cellStyle);
+				cell.setCellValue(user.getAge());
+				
+			}).withColumnField(fields).doWrite(1,list).writeOut("C:\\Users\\Disen\\OneDrive\\桌面\\write_data.xlsx");
 			assertTrue(true);
 		} catch (Exception e) {
 			
