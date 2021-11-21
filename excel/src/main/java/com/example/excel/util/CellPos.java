@@ -13,8 +13,8 @@ public class CellPos {
 	}
 
 	public static CellPos build() {
-		CellPos cellPos = new CellPos();
-		return cellPos;
+
+		return FuncUtil.create(CellPos::new);
 	}
 
 	public CellPos withRowIndex(int rowIndex) {
@@ -39,5 +39,11 @@ public class CellPos {
 	public String toString() {
 		return "(" + rowIndex + "," + colIndex + ")";
 	}
-
+	public static void main(String[] args) {
+		ThreadLocal<String> threadLocal = new ThreadLocal<String>();
+		threadLocal.set("123");
+		System.err.println(threadLocal.get());
+		threadLocal.set(null);
+		System.err.println(threadLocal.get());
+	}
 }

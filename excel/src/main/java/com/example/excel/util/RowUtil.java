@@ -8,7 +8,7 @@ import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.Row;
 
-public class RowUtil {
+public final class RowUtil {
 	//private static final Logger logger = Logger.getLogger(RowUtil.class.getName());
 
 	private RowUtil() {

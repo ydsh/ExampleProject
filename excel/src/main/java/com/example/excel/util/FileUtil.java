@@ -8,7 +8,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.logging.Logger;
 
-public class FileUtil {
+public final class FileUtil {
 	private static final Logger logger = Logger.getLogger(FileUtil.class.getName());
 	private static final int WRITE_BUFF_SIZE = 1024;
 

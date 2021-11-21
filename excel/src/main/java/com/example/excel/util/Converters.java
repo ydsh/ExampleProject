@@ -5,60 +5,42 @@ import java.util.Map;
 
 import org.apache.poi.ss.usermodel.Cell;
 /**
- *全局读写转换器 
+ *读写转换器 
  *
  */
 public class Converters{
-	private Map<String,ReadConverter<Cell,?>> globalReadConverters = new HashMap<String,ReadConverter<Cell, ?>>(0);
-	private Map<String,WriteConverter<Cell,?>> globalWriteConverters = new HashMap<String,WriteConverter<Cell,?>>(0);
-    /**
-     * 获取读转换器
-     * @param <T>
-     * @param clazz
-     * @return
-     */
-	public <T> Map<String, ReadConverter<Cell, ?>> getReadConveters(){
-		return globalReadConverters;
+	private Map<String,Converter<Cell,?>> globalConverters = new HashMap<String,Converter<Cell,?>>(0);
+	private Converters() {}
+	
+	public static Converters build() {
+		return FuncUtil.create(Converters::new);
 	}
+    
 	/**
-	 *  获取写转换器
+	 *  获取转换器
 	 * @param <T>
 	 * @param clazz
 	 * @return
 	 */
-	public <T> Map<String, WriteConverter<Cell, ?>> getWriteConveters(){
-		return globalWriteConverters;
+	public <T> Map<String, Converter<Cell, ?>> getConverters(){
+		return globalConverters;
 	}
+	
 	/**
-	 *  注册读转换器
+	 *  注册转换器
 	 * @param <T>
 	 * @param clazz
 	 * @param fieldName
 	 * @param converter
 	 */
-	public <T> void registerReadConverter(String fieldName,ReadConverter<Cell, T> converter) {
-		globalReadConverters.put(fieldName, converter);
+	public <T> void registerConverter(String fieldName,Converter<Cell, T> converter) {
+		globalConverters.put(fieldName, converter);
 	}
+    
 	/**
-	 *  注册写转换器
-	 * @param <T>
-	 * @param clazz
-	 * @param fieldName
-	 * @param converter
+	 * 清空转换器
 	 */
-	public <T> void registerWriteConverter(String fieldName,WriteConverter<Cell, T> converter) {
-		globalWriteConverters.put(fieldName, converter);
-	}
-    /**
-     * 清空读转换器
-     */
-	public void clearReadConveter() {
-		globalReadConverters.clear();
-	}
-	/**
-	 * 清空写转换器
-	 */
-	public void clearWriteConverter() {
-		globalWriteConverters.clear();
+	public void clearConverter() {
+		globalConverters.clear();
 	}
 }

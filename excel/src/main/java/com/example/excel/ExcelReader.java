@@ -1,7 +1,6 @@
 package com.example.excel;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -20,9 +19,12 @@ import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 
 import com.example.excel.util.CellUtil;
+import com.example.excel.util.ColIndexFieldMap;
+import com.example.excel.util.ColumnField;
+import com.example.excel.util.Converter;
 import com.example.excel.util.Converters;
+import com.example.excel.util.FuncUtil;
 import com.example.excel.util.Inspect;
-import com.example.excel.util.ReadConverter;
 import com.example.excel.util.RowUtil;
 import com.example.excel.util.SheetUtil;
 import com.example.excel.util.WorkbookUtil;
@@ -41,8 +43,11 @@ public class ExcelReader {
 	//转换器
 	private Converters converters;
 	// 默认转换器
-	private ReadConverter<Cell, Object> defaultConverter = (Cell cell, Object obj) -> {
-	};
+	private Converter<Cell, Object> defaultConverter = (cell,obj) -> {};
+   //excel表列和字段关系信息
+	private List<ColumnField> columnFieldList;
+	//excel表列索引和字段映射
+	private ColIndexFieldMap colIndexFieldMap;
 	// 列索引和字段映射
 	private Map<Integer, String> columnFieldMap;
 
@@ -52,9 +57,15 @@ public class ExcelReader {
 	 * @param <T>
 	 */
 	private <T> ExcelReader() {
-		converters = new Converters();
+		converters = Converters.build();
 	}
-
+	/**
+	 * 获取工作簿
+	 * @return
+	 */
+    public Workbook getWorkbook() {
+    	return workbook;
+    }
 	/**
 	 * 注册读数据类的字段转换器
 	 * 
@@ -64,8 +75,8 @@ public class ExcelReader {
 	 * @param readConverter
 	 * @return
 	 */
-	public <T> ExcelReader registerConverter(String fieldName, ReadConverter<Cell, T> readConverter) {
-		converters.registerReadConverter(fieldName, readConverter);
+	public <T> ExcelReader registerConverter(String fieldName, Converter<Cell, T> readConverter) {
+		converters.registerConverter(fieldName, readConverter);
 		return this;
 	}
 
@@ -77,10 +88,10 @@ public class ExcelReader {
 	 * @param readConverters
 	 * @return
 	 */
-	public <T> ExcelReader registerConverters(Map<String, ReadConverter<Cell, T>> readConverters) {
+	public <T> ExcelReader registerConverters(Map<String, Converter<Cell, T>> readConverters) {
 		if (readConverters != null && !readConverters.isEmpty()) {
-			for (Entry<String, ReadConverter<Cell, T>> entry : readConverters.entrySet()) {
-				converters.registerReadConverter(entry.getKey(), entry.getValue());
+			for (Entry<String, Converter<Cell, T>> entry : readConverters.entrySet()) {
+				converters.registerConverter(entry.getKey(), entry.getValue());
 			}
 		}
 		return this;
@@ -119,8 +130,9 @@ public class ExcelReader {
 	 * 
 	 * @param fileName
 	 * @return
+	 * @throws Exception 
 	 */
-	public static ExcelReader build(String fileName) {
+	public static ExcelReader build(String fileName) throws Exception {
 		File file = new File(fileName);
 		return build(file);
 	}
@@ -130,20 +142,12 @@ public class ExcelReader {
 	 * 
 	 * @param file
 	 * @return
+	 * @throws Exception 
 	 */
-	public static ExcelReader build(File file) {
-
-		try {
-			InputStream input = new FileInputStream(file);
-			ExcelReader excelReader = build(input);
-			excelReader.file = file;
-			excelReader.build();
-			return excelReader;
-		} catch (Exception e) {
-			logger.info(e.getMessage());
-			e.printStackTrace();
-		}
-		return null;
+	public static ExcelReader build(File file) throws Exception {
+		ExcelReader excelReader = FuncUtil.create(ExcelReader::new);
+		excelReader.file = file;
+		return excelReader.build();
 	}
 
 	/**
@@ -152,10 +156,11 @@ public class ExcelReader {
 	 * @param inputStream
 	 * @return
 	 */
-	public static ExcelReader build(InputStream inputStream) {
-		ExcelReader excelReader = new ExcelReader();
+	public static ExcelReader build(InputStream inputStream) throws Exception{
+		ExcelReader excelReader = FuncUtil.create(ExcelReader::new);
 		excelReader.inputStream = inputStream;
-		return excelReader;
+		
+		return excelReader.build();
 	}
 
 	/**
@@ -172,6 +177,8 @@ public class ExcelReader {
 		} else {
 			throw new Exception("没有文件或输入流可以读取");
 		}
+		file = null ;
+		inputStream = null;
 		return this;
 	}
 
@@ -187,15 +194,18 @@ public class ExcelReader {
 		if (workbook.getNumberOfSheets() == 0) {
 			throw new Exception("没有足够的sheet表可以读取");
 		}
+		if(clazz == null) {
+			throw new Exception("必须指定读取数据的类。");
+		}
 		if(columnFieldMap!=null&&!columnFieldMap.isEmpty()) {
 			throw new Exception("指定列索引和字段映射时，必须给定开始读取数据的行索引。");
 		}
 		Sheet sheet = WorkbookUtil.getSheet(workbook);
-		int startRow = SheetUtil.headLastRowNum(sheet, clazz) + 1;
+		int startRow = SheetUtil.templateHeadLastRowNum(sheet, clazz) + 1;
 		if (startRow < 1) {
 			logger.warning("没有读取到正确的表头");
 		}
-		return doRead(sheet, startRow, clazz);
+		return analysisSheet(sheet, startRow, clazz);
 	}
 
 	/**
@@ -212,7 +222,7 @@ public class ExcelReader {
 			throw new Exception("没有足够的sheet表可以读取");
 		}
 		Sheet sheet = WorkbookUtil.getSheet(workbook);
-		return doRead(sheet, startRow, clazz);
+		return analysisSheet(sheet, startRow, clazz);
 	}
 
 	/**
@@ -235,8 +245,8 @@ public class ExcelReader {
 			throw new Exception("指定列索引和字段映射时，必须给定开始读取数据的行索引。");
 		}
 		Sheet sheet = WorkbookUtil.getSheet(workbook, sheetName);
-		int startRow = SheetUtil.headLastRowNum(sheet, clazz) + 1;
-		return doRead(sheet, startRow, clazz);
+		int startRow = SheetUtil.templateHeadLastRowNum(sheet, clazz) + 1;
+		return analysisSheet(sheet, startRow, clazz);
 	}
 
 	/**
@@ -255,29 +265,6 @@ public class ExcelReader {
 		}
 		Sheet sheet = WorkbookUtil.getSheet(workbook, sheetName);
 
-		return doRead(sheet, startRow, clazz);
-	}
-
-	/**
-	 * 指定sheet表, 指定开始读取的行号， 指定读取数据的类
-	 * 
-	 * @param <T>
-	 * @param sheet
-	 * @param startRow
-	 * @param clazz
-	 * @return
-	 * @throws Exception
-	 */
-	private <T> List<T> doRead(Sheet sheet, int startRow, Class<T> clazz) throws Exception {
-		if (sheet == null) {
-			throw new Exception("sheet表不存在");
-		}
-		if (startRow < 0) {
-			throw new Exception("开始读取的行不能小于0");
-		}
-		if (clazz == null) {
-			throw new Exception("必须指定读取数据的类");
-		}
 		return analysisSheet(sheet, startRow, clazz);
 	}
 
@@ -293,7 +280,7 @@ public class ExcelReader {
 			throw new Exception("没有足够的sheet表可以读取");
 		}
 		Sheet sheet = WorkbookUtil.getSheet(workbook);
-		return doRead(sheet, startRow);
+		return analysisSheetToMapList(sheet, startRow);
 	}
 
 	/**
@@ -309,25 +296,6 @@ public class ExcelReader {
 			throw new Exception(sheetName + "表不存在");
 		}
 		Sheet sheet = WorkbookUtil.getSheet(workbook, sheetName);
-		return doRead(sheet, startRow);
-	}
-
-	/**
-	 * 读取Map数据， 指定sheet, 指定开始读取的行号
-	 * 
-	 * @param sheet
-	 * @param startRow
-	 * @return
-	 * @throws Exception
-	 */
-	private List<Map<String, Object>> doRead(Sheet sheet, int startRow) throws Exception {
-		if (sheet == null) {
-			throw new Exception("sheet表不存在");
-		}
-		if (startRow < 0) {
-			throw new Exception("开始读取的行不能小于0");
-		}
-
 		return analysisSheetToMapList(sheet, startRow);
 	}
 
@@ -378,7 +346,7 @@ public class ExcelReader {
 			throw new Exception("读取" + sheet.getSheetName() + "表出现异常");
 		} finally {
 			// 清空当前读转换器
-			converters.clearReadConveter();
+			converters.clearConverter();
 			// 每次读完sheet表就清空列索引和字段的映射，所以每次读sheet表之前给定列索引和字段的映射
 			if(columnFieldMap!=null) {
 				columnFieldMap.clear();
@@ -449,7 +417,7 @@ public class ExcelReader {
 			throw new Exception("指定列索引和字段映射时，必须给定开始读取数据的行索引。");
 		}
 		Sheet sheet = WorkbookUtil.getSheet(workbook);
-		int startRow = SheetUtil.headLastRowNum(sheet, clazz) + 1;
+		int startRow = SheetUtil.templateHeadLastRowNum(sheet, clazz) + 1;
 
 		return doReadCheck(sheet, startRow, clazz, dataCheck);
 	}
@@ -516,7 +484,7 @@ public class ExcelReader {
 			throw new Exception("读取" + sheet.getSheetName() + "表出现异常");
 		} finally {
 			// 清空当前读转换器
-			converters.clearReadConveter();
+			converters.clearConverter();
 			if (autoClose) {
 				complete();
 			}
@@ -550,24 +518,24 @@ public class ExcelReader {
 						+ "，请拆分sheet表。");
 			}
 			int rowLastNum = sheet.getLastRowNum();
-			Map<Integer, String> columnNameMap = new HashMap<Integer, String>();
+			Map<Integer, String> columnMap = new HashMap<Integer, String>();
 			int headRowIndex = startRow - 1;
 			Row headRow = SheetUtil.getRow(sheet, headRowIndex < 0 ? 0 : headRowIndex);
 			int colLastNum = headRow.getLastCellNum();
 			for (int i = 0; i < colLastNum; i++) {
 				if (startRow == 0) {
-					columnNameMap.put(i, String.valueOf(i));
+					columnMap.put(i, String.valueOf(i));
 				} else {
 					Cell cell = RowUtil.getCell(headRow, i);
 					cell.getColumnIndex();
 					if (cell != null && cell.getStringCellValue() != null && !"".equals(cell.getStringCellValue())) {
-						columnNameMap.put(i, cell.getStringCellValue());
+						columnMap.put(i, cell.getStringCellValue());
 					}
 				}
 			}
 			for (int i = startRow; i <= rowLastNum; i++) {
 				Row row = SheetUtil.getRow(sheet, i);
-				result.add(analysisRowToMap(row, columnNameMap));
+				result.add(analysisRowToMap(row, columnMap));
 			}
 
 		} catch (Exception e) {
@@ -613,9 +581,9 @@ public class ExcelReader {
 			method.setAccessible(true);
 			Cell cell = RowUtil.getCell(row, colIndex);
 			// 获取转换器
-			Map<String, ReadConverter<Cell, ?>> cv = converters.getReadConveters();
+			Map<String, Converter<Cell, ?>> cv = converters.getConverters();
 			if (cv != null && !cv.isEmpty() && cv.containsKey(fieldName)) {
-				((ReadConverter<Cell, T>) cv.get(fieldName)).convert(cell, t);
+				((Converter<Cell, T>) cv.get(fieldName)).convert(cell, t);
 			} else {
 				Object value = defaultConverter.defaultConvert(cell);
 				if (value == null || "".equals(value)) {
@@ -650,18 +618,16 @@ public class ExcelReader {
 	 */
 	private Map<String, Object> analysisRowToMap(Row row, Map<Integer, String> columnFieldMap) {
 		Map<String, Object> result = new HashMap<String, Object>();
-		for (Integer colIndex : columnFieldMap.keySet()) {
-			Cell cell = RowUtil.getCell(row, colIndex);
-			// 获取转换器
-			Map<String, ReadConverter<Cell, ?>> cv = converters.getReadConveters();
-			if (cv != null && !cv.isEmpty() && cv.containsKey(columnFieldMap.get(colIndex))) {
-				((ReadConverter<Cell, Object>) cv.get(columnFieldMap.get(colIndex))).convert(cell, result);
+		columnFieldMap.entrySet().forEach(data->{
+			Cell cell = RowUtil.getCell(row, data.getKey());
+			Map<String, Converter<Cell, ?>> cv = converters.getConverters();
+			if (cv != null && !cv.isEmpty() && cv.containsKey(data.getValue())) {
+				((Converter<Cell, Object>) cv.get(data.getValue())).convert(cell, result);
 			} else {
 				Object value = defaultConverter.defaultConvert(cell);
-				result.put(columnFieldMap.get(colIndex), value);
+				result.put(data.getValue(), value);
 			}
-		}
-
+		});
 		return result;
 	}
 
@@ -688,9 +654,6 @@ public class ExcelReader {
 					((SXSSFWorkbook) workbook).dispose();
 				}
 				workbook.close();
-			}
-			if (inputStream != null) {
-				inputStream.close();
 			}
 			logger.info("资源释放完成");
 		} catch (Exception ex) {

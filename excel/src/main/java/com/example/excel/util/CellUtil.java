@@ -15,7 +15,7 @@ import org.apache.poi.ss.usermodel.Drawing;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFRichTextString;
 
-public class CellUtil {
+public final class CellUtil {
 	private static final Logger logger = Logger.getLogger(CellUtil.class.getName());
 
 	private CellUtil() {

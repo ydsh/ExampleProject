@@ -10,10 +10,12 @@ import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
-public class WorkbookUtil {
+public final class WorkbookUtil {
 	private final static Logger logger = Logger.getLogger(WorkbookUtil.class.getName());
 	public static final String XLS = ".xls";
 	public static final String XLSX = ".xlsx";
+	
+	private WorkbookUtil() {}
 
 	/**
 	 * 创建HSSFWorkbook / XSSFWorkbook,针对XSSFWorkbook创建SXSSFWorkbook。

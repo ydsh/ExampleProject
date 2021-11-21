@@ -10,7 +10,7 @@ import java.util.Date;
 import java.util.Locale;
 import java.util.logging.Logger;
 
-public class DateTimeUtil {
+public final class DateTimeUtil {
 	private static final Logger logger = Logger.getLogger(DateTimeUtil.class.getName());
 
 	private DateTimeUtil() {

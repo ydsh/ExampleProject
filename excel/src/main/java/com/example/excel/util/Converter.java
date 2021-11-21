@@ -8,9 +8,9 @@ import org.apache.poi.ss.usermodel.Cell;
  * @param <T>
  */
 @FunctionalInterface
-public interface ReadConverter<T extends Cell,K>{
+public interface Converter<T extends Cell, K> {
 	/**
-	 * 默认方法
+	 * 默认读cell方法
 	 * 
 	 * @param cell
 	 * @return
@@ -18,6 +18,16 @@ public interface ReadConverter<T extends Cell,K>{
 	default K defaultConvert(Cell cell) {
 		return (K) CellUtil.getCellValue(cell);
 	}
+
+	/**
+	 * 默认写cell方法
+	 * 
+	 * @param cell
+	 * @param k
+	 */
+	default void defaultConvert(Cell cell, K k) {
+		CellUtil.setCellValue(cell, k);
+	};
 
 	void convert(T t, K k);
 }
